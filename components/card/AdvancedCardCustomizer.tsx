@@ -1324,8 +1324,6 @@ export default function AdvancedCardCustomizer({
       <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
         {renderTabContent()}
       </ScrollView>
-
-      </ScrollView>
       </View>
     </View>
   );
