@@ -1,17 +1,22 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import useWorkoutStore from '@/stores/workoutStore';
-import WeeklyChart from '@/components/stats/WeeklyChart';
+import SimpleChart from '@/components/stats/SimpleChart';
+import WorkoutCalendar from '@/components/stats/WorkoutCalendar';
+import MuscleChart from '@/components/stats/MuscleChart';
+import ProgressChart from '@/components/stats/ProgressChart';
 import { formatDuration } from '@/utils/time';
 
 export default function StatsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets(); // Safe area insets 추가
   const { workoutHistory } = useWorkoutStore();
 
   // 통계 계산
@@ -30,16 +35,30 @@ export default function StatsScreen() {
       w => new Date(w.date) >= monthStart
     );
 
-    const totalVolume = workoutHistory.reduce((acc, workout) => {
-      return acc + workout.exercises.reduce((wAcc, exercise) => {
-        return wAcc + exercise.sets.reduce((sAcc, set) => {
-          if (set.completed && set.weight) {
-            return sAcc + (set.weight * set.reps);
-          }
-          return sAcc;
-        }, 0);
-      }, 0);
-    }, 0);
+    // 웨이트 트레이닝과 유산소 운동 통계 분리
+    const { totalVolume, totalDistance, cardioTime } = workoutHistory.reduce((acc, workout) => {
+      workout.exercises.forEach(exercise => {
+        // exerciseType이 없으면 exerciseDatabase에서 찾기
+        const exerciseType = exercise.exerciseType ||
+          require('@/data/exercises').exerciseDatabase.find(e => e.id === exercise.exerciseTypeId);
+
+        if (exerciseType?.category === 'cardio') {
+          exercise.sets.forEach(set => {
+            if (set.completed) {
+              if (set.distance) acc.totalDistance += set.distance;
+              if (set.duration) acc.cardioTime += set.duration;
+            }
+          });
+        } else {
+          exercise.sets.forEach(set => {
+            if (set.completed && set.weight) {
+              acc.totalVolume += (set.weight * set.reps);
+            }
+          });
+        }
+      });
+      return acc;
+    }, { totalVolume: 0, totalDistance: 0, cardioTime: 0 });
 
     const totalTime = workoutHistory.reduce((acc, w) => acc + w.totalDuration, 0);
 
@@ -72,6 +91,8 @@ export default function StatsScreen() {
       monthWorkouts: monthWorkouts.length,
       totalWorkouts: workoutHistory.length,
       totalVolume,
+      totalDistance,
+      cardioTime,
       totalTime,
       weeklyData,
       topMuscle: Object.entries(muscleStats).sort((a, b) => b[1] - a[1])[0]?.[0] || '없음',
@@ -80,7 +101,10 @@ export default function StatsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedView style={styles.header}>
+      <ThemedView style={[styles.header, {
+        paddingTop: insets.top,
+        borderBottomColor: colorScheme === 'dark' ? '#333' : '#eee', // 다크모드 대응
+      }]}>
         <ThemedText type="title">통계</ThemedText>
         <ThemedText type="subtitle">운동 기록 분석</ThemedText>
       </ThemedView>
@@ -88,7 +112,9 @@ export default function StatsScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* 요약 카드 */}
         <View style={styles.summaryGrid}>
-          <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+          <View style={[styles.summaryCard, {
+            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+          }]}>
             <Ionicons name="calendar" size={24} color={colors.tint} />
             <ThemedText style={styles.summaryValue}>
               {stats.weekWorkouts}
@@ -96,7 +122,9 @@ export default function StatsScreen() {
             <ThemedText style={styles.summaryLabel}>이번 주</ThemedText>
           </View>
 
-          <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+          <View style={[styles.summaryCard, {
+            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+          }]}>
             <Ionicons name="barbell" size={24} color={colors.tint} />
             <ThemedText style={styles.summaryValue}>
               {stats.totalWorkouts}
@@ -104,7 +132,9 @@ export default function StatsScreen() {
             <ThemedText style={styles.summaryLabel}>총 운동</ThemedText>
           </View>
 
-          <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+          <View style={[styles.summaryCard, {
+            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+          }]}>
             <Ionicons name="time" size={24} color={colors.tint} />
             <ThemedText style={styles.summaryValue}>
               {Math.floor(stats.totalTime / 3600)}h
@@ -112,7 +142,9 @@ export default function StatsScreen() {
             <ThemedText style={styles.summaryLabel}>총 시간</ThemedText>
           </View>
 
-          <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+          <View style={[styles.summaryCard, {
+            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+          }]}>
             <Ionicons name="trending-up" size={24} color={colors.tint} />
             <ThemedText style={styles.summaryValue}>
               {Math.floor(stats.totalVolume / 1000)}t
@@ -121,27 +153,42 @@ export default function StatsScreen() {
           </View>
         </View>
 
+        {/* 월별 운동 캘린더 */}
+        <WorkoutCalendar workoutHistory={workoutHistory} />
+
         {/* 주간 차트 */}
-        <WeeklyChart
+        <SimpleChart
           data={stats.weeklyData}
           title="이번 주 운동 횟수"
           unit="회"
         />
 
+        {/* 부위별 운동 분포 */}
+        <MuscleChart workoutHistory={workoutHistory} period="month" />
+
+        {/* 운동 진행도 */}
+        <ProgressChart workoutHistory={workoutHistory} />
+
         {/* 상세 통계 */}
-        <ThemedView style={styles.detailCard}>
+        <ThemedView style={[styles.detailCard, {
+          backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+        }]}>
           <ThemedText type="subtitle" style={styles.detailTitle}>
             운동 분석
           </ThemedText>
 
-          <View style={styles.detailItem}>
+          <View style={[styles.detailItem, {
+            borderBottomColor: colorScheme === 'dark' ? '#333' : '#f0f0f0', // 다크모드 대응
+          }]}>
             <ThemedText style={styles.detailLabel}>이번 달 운동</ThemedText>
             <ThemedText style={styles.detailValue}>
               {stats.monthWorkouts}회
             </ThemedText>
           </View>
 
-          <View style={styles.detailItem}>
+          <View style={[styles.detailItem, {
+            borderBottomColor: colorScheme === 'dark' ? '#333' : '#f0f0f0', // 다크모드 대응
+          }]}>
             <ThemedText style={styles.detailLabel}>평균 운동 시간</ThemedText>
             <ThemedText style={styles.detailValue}>
               {stats.totalWorkouts > 0
@@ -150,14 +197,18 @@ export default function StatsScreen() {
             </ThemedText>
           </View>
 
-          <View style={styles.detailItem}>
+          <View style={[styles.detailItem, {
+            borderBottomColor: colorScheme === 'dark' ? '#333' : '#f0f0f0', // 다크모드 대응
+          }]}>
             <ThemedText style={styles.detailLabel}>가장 많이 한 부위</ThemedText>
             <ThemedText style={styles.detailValue}>
               {stats.topMuscle}
             </ThemedText>
           </View>
 
-          <View style={styles.detailItem}>
+          <View style={[styles.detailItem, {
+            borderBottomColor: colorScheme === 'dark' ? '#333' : '#f0f0f0', // 다크모드 대응
+          }]}>
             <ThemedText style={styles.detailLabel}>평균 볼륨</ThemedText>
             <ThemedText style={styles.detailValue}>
               {stats.totalWorkouts > 0
@@ -165,15 +216,42 @@ export default function StatsScreen() {
                 : '0kg'}
             </ThemedText>
           </View>
+
+          {/* 유산소 운동 통계 (있는 경우만 표시) */}
+          {stats.totalDistance > 0 && (
+            <View style={[styles.detailItem, {
+              borderBottomColor: colorScheme === 'dark' ? '#333' : '#f0f0f0', // 다크모드 대응
+            }]}>
+              <ThemedText style={styles.detailLabel}>총 유산소 거리</ThemedText>
+              <ThemedText style={styles.detailValue}>
+                {stats.totalDistance.toFixed(1)}km
+              </ThemedText>
+            </View>
+          )}
+
+          {stats.cardioTime > 0 && (
+            <View style={[styles.detailItem, {
+              borderBottomColor: colorScheme === 'dark' ? '#333' : '#f0f0f0', // 다크모드 대응
+            }]}>
+              <ThemedText style={styles.detailLabel}>총 유산소 시간</ThemedText>
+              <ThemedText style={styles.detailValue}>
+                {Math.floor(stats.cardioTime / 60)}분
+              </ThemedText>
+            </View>
+          )}
         </ThemedView>
 
         {/* 최근 운동 기록 */}
-        <ThemedView style={styles.recentSection}>
+        <ThemedView style={[styles.recentSection, {
+          backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+        }]}>
           <ThemedText type="subtitle" style={styles.recentTitle}>
             최근 운동 기록
           </ThemedText>
           {workoutHistory.slice(0, 5).map((workout, index) => (
-            <View key={index} style={styles.recentItem}>
+            <View key={index} style={[styles.recentItem, {
+              borderBottomColor: colorScheme === 'dark' ? '#333' : '#f0f0f0', // 다크모드 대응
+            }]}>
               <View>
                 <ThemedText style={styles.recentDate}>
                   {new Date(workout.date).toLocaleDateString('ko-KR')}
@@ -197,9 +275,9 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    paddingTop: 60,
+    // paddingTop은 컴포넌트에서 동적으로 설정
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    // borderBottomColor는 인라인으로 동적 적용 (다크모드 대응)
   },
   content: {
     flex: 1,
@@ -216,7 +294,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: 'white',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -234,7 +312,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   detailCard: {
-    backgroundColor: 'white',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     borderRadius: 12,
     padding: 20,
     marginHorizontal: 20,
@@ -254,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    // borderBottomColor는 인라인으로 동적 적용 (다크모드 대응)
   },
   detailLabel: {
     fontSize: 14,
@@ -265,7 +343,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   recentSection: {
-    backgroundColor: 'white',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     borderRadius: 12,
     padding: 20,
     marginHorizontal: 20,
@@ -285,7 +363,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    // borderBottomColor는 인라인으로 동적 적용 (다크모드 대응)
   },
   recentDate: {
     fontSize: 14,

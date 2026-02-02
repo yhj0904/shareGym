@@ -4,24 +4,29 @@ import {
   View,
   TextInput,
   Pressable,
-  SafeAreaView,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   ScrollView,
+  Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
+import { Colors, gradientColors } from '@/constants/Colors';
 import useAuthStore from '@/stores/authStore';
 
 export default function SignupScreen() {
+  // 테마 및 색상 설정
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  // Safe Area Insets - 상단/하단 안전 영역 패딩 설정
+  const insets = useSafeAreaInsets();
   const { signUp, isLoading } = useAuthStore();
 
   const [email, setEmail] = useState('');
@@ -63,7 +68,7 @@ export default function SignupScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ThemedView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -77,6 +82,15 @@ export default function SignupScreen() {
               </Pressable>
               <ThemedText type="title">회원가입</ThemedText>
               <View style={{ width: 28 }} />
+            </View>
+
+            {/* 로고 */}
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('@/assets/images/logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
 
             {/* 입력 필드 */}
@@ -174,21 +188,24 @@ export default function SignupScreen() {
                 </ThemedText>
               </View>
 
-              {/* 회원가입 버튼 */}
+              {/* 회원가입 버튼 - 그라데이션 적용 */}
               <Pressable
-                style={[
-                  styles.signupButton,
-                  { backgroundColor: colors.tint },
-                  isLoading && styles.disabledButton,
-                ]}
+                style={[styles.signupButtonWrapper, isLoading && styles.disabledButton]}
                 onPress={handleSignup}
                 disabled={isLoading}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <ThemedText style={styles.signupButtonText}>회원가입</ThemedText>
-                )}
+                <LinearGradient
+                  colors={isLoading ? ['#B5B5B8', '#B5B5B8'] : gradientColors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.signupButton}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <ThemedText style={styles.signupButtonText}>회원가입</ThemedText>
+                  )}
+                </LinearGradient>
               </Pressable>
             </View>
 
@@ -204,7 +221,7 @@ export default function SignupScreen() {
           </ThemedView>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ThemedView>
   );
 }
 
@@ -229,6 +246,14 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 5,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+  },
   formContainer: {
     marginBottom: 20,
   },
@@ -243,7 +268,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF1E4', // 브랜드 서브 배경색
     borderRadius: 12,
     paddingHorizontal: 15,
     gap: 10,
@@ -270,11 +295,14 @@ const styles = StyleSheet.create({
   termsLink: {
     textDecorationLine: 'underline',
   },
+  signupButtonWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
   signupButton: {
     padding: 16,
-    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 10,
   },
   disabledButton: {
     opacity: 0.6,

@@ -1,30 +1,31 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  updateProfile,
-  User as FirebaseUser
-} from 'firebase/auth';
-import {
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from 'firebase/firestore';
-import { auth, db } from '@/config/firebase';
 import { User } from '@/types';
 import uuid from 'react-native-uuid';
 
+// Firebase imports commented out for test mode
+// import {
+//   signInWithEmailAndPassword,
+//   createUserWithEmailAndPassword,
+//   signOut,
+//   updateProfile,
+//   User as FirebaseUser
+// } from 'firebase/auth';
+// import {
+//   doc,
+//   setDoc,
+//   getDoc,
+//   updateDoc,
+//   collection,
+//   query,
+//   where,
+//   getDocs,
+// } from 'firebase/firestore';
+// import { auth, db } from '@/config/firebase';
+
 interface AuthStore {
   user: User | null;
-  firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   error: string | null;
 
@@ -50,30 +51,86 @@ interface AuthStore {
   checkUsername: (username: string) => Promise<boolean>;
 }
 
+// Mock user data for testing
+const mockUsers: { [key: string]: { password: string; user: User } } = {
+  'test@test.com': {
+    password: 'test1234',
+    user: {
+      id: 'test-user-001',
+      username: 'TestUser',
+      profileImage: undefined,
+      badges: ['early_bird', 'week_warrior'],
+      following: [],
+      followers: [],
+      stats: {
+        totalWorkouts: 42,
+        currentStreak: 7,
+        totalVolume: 125000,
+        favoriteExercise: '벤치프레스',
+      },
+      gym: {
+        id: 'gym-001',
+        name: '테스트 헬스장',
+        location: '서울특별시 강남구',
+        members: ['test-user-001'],
+      },
+    },
+  },
+  'test2@test.com': {
+    password: 'test1234',
+    user: {
+      id: 'test-user-002',
+      username: 'GymBuddy',
+      profileImage: undefined,
+      badges: ['consistency_king'],
+      following: ['test-user-001'],
+      followers: ['test-user-001'],
+      stats: {
+        totalWorkouts: 100,
+        currentStreak: 30,
+        totalVolume: 500000,
+        favoriteExercise: '스쿼트',
+      },
+      gym: {
+        id: 'gym-001',
+        name: '테스트 헬스장',
+        location: '서울특별시 강남구',
+        members: ['test-user-001', 'test-user-002'],
+      },
+    },
+  },
+};
+
 const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
       user: null,
-      firebaseUser: null,
       isLoading: false,
       error: null,
 
       signIn: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
-        try {
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          const firebaseUser = userCredential.user;
 
-          // Firestore에서 사용자 프로필 가져오기
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data() as User;
-            set({
-              user: userData,
-              firebaseUser,
-              isLoading: false,
-            });
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        try {
+          // Check if user exists in mock database
+          const mockUser = mockUsers[email];
+
+          if (!mockUser) {
+            throw new Error('사용자를 찾을 수 없습니다.');
           }
+
+          if (mockUser.password !== password) {
+            throw new Error('비밀번호가 일치하지 않습니다.');
+          }
+
+          // Login successful
+          set({
+            user: mockUser.user,
+            isLoading: false,
+          });
         } catch (error: any) {
           set({
             error: error.message,
@@ -85,25 +142,25 @@ const useAuthStore = create<AuthStore>()(
 
       signUp: async (email: string, password: string, username: string) => {
         set({ isLoading: true, error: null });
+
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         try {
-          // 사용자명 중복 확인
+          // Check if email already exists
+          if (mockUsers[email]) {
+            throw new Error('이미 가입된 이메일입니다.');
+          }
+
+          // Check if username is available
           const usernameAvailable = await get().checkUsername(username);
           if (!usernameAvailable) {
             throw new Error('이미 사용 중인 사용자명입니다.');
           }
 
-          // Firebase Auth 계정 생성
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const firebaseUser = userCredential.user;
-
-          // Firebase Auth 프로필 업데이트
-          await updateProfile(firebaseUser, {
-            displayName: username,
-          });
-
-          // Firestore에 사용자 프로필 생성
+          // Create new user
           const newUser: User = {
-            id: firebaseUser.uid,
+            id: uuid.v4() as string,
             username,
             profileImage: undefined,
             badges: [],
@@ -117,11 +174,14 @@ const useAuthStore = create<AuthStore>()(
             },
           };
 
-          await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+          // Save to mock database
+          mockUsers[email] = {
+            password,
+            user: newUser,
+          };
 
           set({
             user: newUser,
-            firebaseUser,
             isLoading: false,
           });
         } catch (error: any) {
@@ -135,11 +195,13 @@ const useAuthStore = create<AuthStore>()(
 
       signOutUser: async () => {
         set({ isLoading: true });
+
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         try {
-          await signOut(auth);
           set({
             user: null,
-            firebaseUser: null,
             isLoading: false,
           });
         } catch (error: any) {
@@ -156,13 +218,23 @@ const useAuthStore = create<AuthStore>()(
         if (!user) return;
 
         set({ isLoading: true });
-        try {
-          // Firestore 업데이트
-          await updateDoc(doc(db, 'users', user.id), updates);
 
-          // 로컬 상태 업데이트
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        try {
+          // Update local state
+          const updatedUser = { ...user, ...updates };
+
+          // Update mock database
+          Object.values(mockUsers).forEach(mockUser => {
+            if (mockUser.user.id === user.id) {
+              mockUser.user = updatedUser;
+            }
+          });
+
           set({
-            user: { ...user, ...updates },
+            user: updatedUser,
             isLoading: false,
           });
         } catch (error: any) {
@@ -183,23 +255,24 @@ const useAuthStore = create<AuthStore>()(
         const { user } = get();
         if (!user) return;
 
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         try {
-          // 현재 사용자의 following 업데이트
+          // Update current user's following
           const updatedFollowing = [...user.following, targetUserId];
-          await updateDoc(doc(db, 'users', user.id), {
-            following: updatedFollowing,
+
+          // Update mock database
+          Object.values(mockUsers).forEach(mockUser => {
+            if (mockUser.user.id === user.id) {
+              mockUser.user.following = updatedFollowing;
+            }
+            if (mockUser.user.id === targetUserId) {
+              mockUser.user.followers = [...mockUser.user.followers, user.id];
+            }
           });
 
-          // 대상 사용자의 followers 업데이트
-          const targetUserDoc = await getDoc(doc(db, 'users', targetUserId));
-          if (targetUserDoc.exists()) {
-            const targetUser = targetUserDoc.data() as User;
-            await updateDoc(doc(db, 'users', targetUserId), {
-              followers: [...targetUser.followers, user.id],
-            });
-          }
-
-          // 로컬 상태 업데이트
+          // Update local state
           set({
             user: { ...user, following: updatedFollowing },
           });
@@ -213,23 +286,24 @@ const useAuthStore = create<AuthStore>()(
         const { user } = get();
         if (!user) return;
 
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         try {
-          // 현재 사용자의 following 업데이트
+          // Update current user's following
           const updatedFollowing = user.following.filter(id => id !== targetUserId);
-          await updateDoc(doc(db, 'users', user.id), {
-            following: updatedFollowing,
+
+          // Update mock database
+          Object.values(mockUsers).forEach(mockUser => {
+            if (mockUser.user.id === user.id) {
+              mockUser.user.following = updatedFollowing;
+            }
+            if (mockUser.user.id === targetUserId) {
+              mockUser.user.followers = mockUser.user.followers.filter(id => id !== user.id);
+            }
           });
 
-          // 대상 사용자의 followers 업데이트
-          const targetUserDoc = await getDoc(doc(db, 'users', targetUserId));
-          if (targetUserDoc.exists()) {
-            const targetUser = targetUserDoc.data() as User;
-            await updateDoc(doc(db, 'users', targetUserId), {
-              followers: targetUser.followers.filter(id => id !== user.id),
-            });
-          }
-
-          // 로컬 상태 업데이트
+          // Update local state
           set({
             user: { ...user, following: updatedFollowing },
           });
@@ -243,39 +317,33 @@ const useAuthStore = create<AuthStore>()(
         const { user } = get();
         if (!user) return;
 
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         try {
-          // 헬스장 정보 가져오기
-          const gymDoc = await getDoc(doc(db, 'gyms', gymId));
-          if (!gymDoc.exists()) {
-            throw new Error('헬스장을 찾을 수 없습니다.');
-          }
+          // Mock gym data
+          const mockGym = {
+            id: gymId,
+            name: '테스트 헬스장',
+            location: '서울특별시 강남구',
+            members: [user.id],
+          };
 
-          const gym = gymDoc.data();
+          // Update user profile
+          const updatedUser = {
+            ...user,
+            gym: mockGym,
+          };
 
-          // 사용자 프로필 업데이트
-          await updateDoc(doc(db, 'users', user.id), {
-            gym: {
-              id: gymId,
-              ...gym,
-            },
+          // Update mock database
+          Object.values(mockUsers).forEach(mockUser => {
+            if (mockUser.user.id === user.id) {
+              mockUser.user = updatedUser;
+            }
           });
 
-          // 헬스장 멤버 목록 업데이트
-          await updateDoc(doc(db, 'gyms', gymId), {
-            members: [...(gym.members || []), user.id],
-          });
-
-          // 로컬 상태 업데이트
           set({
-            user: {
-              ...user,
-              gym: {
-                id: gymId,
-                name: gym.name,
-                location: gym.location,
-                members: gym.members || [],
-              },
-            },
+            user: updatedUser,
           });
         } catch (error: any) {
           set({ error: error.message });
@@ -284,12 +352,16 @@ const useAuthStore = create<AuthStore>()(
       },
 
       fetchUserProfile: async (userId: string) => {
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         try {
-          const userDoc = await getDoc(doc(db, 'users', userId));
-          if (userDoc.exists()) {
-            return userDoc.data() as User;
-          }
-          return null;
+          // Find user in mock database
+          const foundUser = Object.values(mockUsers).find(
+            mockUser => mockUser.user.id === userId
+          );
+
+          return foundUser ? foundUser.user : null;
         } catch (error) {
           console.error('Error fetching user profile:', error);
           return null;
@@ -297,17 +369,17 @@ const useAuthStore = create<AuthStore>()(
       },
 
       searchUsers: async (searchQuery: string) => {
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         try {
-          const q = query(
-            collection(db, 'users'),
-            where('username', '>=', searchQuery),
-            where('username', '<=', searchQuery + '\uf8ff')
-          );
-          const querySnapshot = await getDocs(q);
-          const users: User[] = [];
-          querySnapshot.forEach((doc) => {
-            users.push(doc.data() as User);
-          });
+          // Search users in mock database
+          const users = Object.values(mockUsers)
+            .map(mockUser => mockUser.user)
+            .filter(user =>
+              user.username.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+
           return users;
         } catch (error) {
           console.error('Error searching users:', error);
@@ -316,13 +388,16 @@ const useAuthStore = create<AuthStore>()(
       },
 
       checkUsername: async (username: string) => {
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         try {
-          const q = query(
-            collection(db, 'users'),
-            where('username', '==', username)
+          // Check if username exists in mock database
+          const exists = Object.values(mockUsers).some(
+            mockUser => mockUser.user.username.toLowerCase() === username.toLowerCase()
           );
-          const querySnapshot = await getDocs(q);
-          return querySnapshot.empty;
+
+          return !exists; // Return true if username is available
         } catch (error) {
           console.error('Error checking username:', error);
           return false;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -22,7 +22,8 @@ interface FeedCardProps {
   currentUserId?: string;
 }
 
-export default function FeedCard({ feedItem, currentUserId }: FeedCardProps) {
+// props가 변경될 때만 리렌더링
+const FeedCard = ({ feedItem, currentUserId }: FeedCardProps) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { likePost, unlikePost, addComment } = useFeedStore();
@@ -33,7 +34,8 @@ export default function FeedCard({ feedItem, currentUserId }: FeedCardProps) {
 
   const isLiked = currentUserId ? feedItem.likes.includes(currentUserId) : false;
 
-  const handleLike = () => {
+  // 메모이제이션된 이벤트 핸들러들
+  const handleLike = useCallback(() => {
     if (!currentUserId) {
       Alert.alert('알림', '로그인이 필요합니다.');
       return;
@@ -44,9 +46,9 @@ export default function FeedCard({ feedItem, currentUserId }: FeedCardProps) {
     } else {
       likePost(feedItem.id, currentUserId);
     }
-  };
+  }, [currentUserId, isLiked, feedItem.id, likePost, unlikePost]);
 
-  const handleComment = async () => {
+  const handleComment = useCallback(async () => {
     if (!currentUserId) {
       Alert.alert('알림', '로그인이 필요합니다.');
       return;
@@ -72,7 +74,7 @@ export default function FeedCard({ feedItem, currentUserId }: FeedCardProps) {
     } finally {
       setIsSubmittingComment(false);
     }
-  };
+  }, [currentUserId, commentText, feedItem.id, addComment]);
 
   // 운동 세션인 경우
   if (feedItem.type === 'workout') {
@@ -227,7 +229,7 @@ export default function FeedCard({ feedItem, currentUserId }: FeedCardProps) {
 
   // 다른 타입의 피드 아이템 처리
   return null;
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -356,4 +358,17 @@ const styles = StyleSheet.create({
   sendButton: {
     padding: 5,
   },
+});
+
+// props가 같으면 리렌더링하지 않도록 최적화
+FeedCard.displayName = 'FeedCard';
+
+export default memo(FeedCard, (prevProps, nextProps) => {
+  // feedItem의 주요 속성들만 비교
+  return (
+    prevProps.feedItem.id === nextProps.feedItem.id &&
+    prevProps.feedItem.likes.length === nextProps.feedItem.likes.length &&
+    prevProps.feedItem.comments.length === nextProps.feedItem.comments.length &&
+    prevProps.currentUserId === nextProps.currentUserId
+  );
 });

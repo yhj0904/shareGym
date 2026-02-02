@@ -1,17 +1,19 @@
 import { create } from 'zustand';
-import {
-  collection,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  onSnapshot,
-  query,
-  where,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db } from '@/config/firebase';
 import uuid from 'react-native-uuid';
+
+// Firebase 기능은 실제 구현 시 활성화
+// import {
+//   collection,
+//   doc,
+//   setDoc,
+//   updateDoc,
+//   deleteDoc,
+//   onSnapshot,
+//   query,
+//   where,
+//   serverTimestamp,
+// } from 'firebase/firestore';
+// import { db } from '@/config/firebase';
 
 // 실시간 운동 상태
 export interface LiveWorkoutStatus {
@@ -103,114 +105,84 @@ const useLiveWorkoutStore = create<LiveWorkoutStore>((set, get) => ({
 
   // 운동 시작
   startLiveWorkout: async (userId, username, currentExercise, groupId) => {
-    try {
-      const liveStatus: LiveWorkoutStatus = {
-        userId,
-        username,
-        status: 'working-out',
-        currentExercise,
-        startTime: new Date(),
-        lastUpdateTime: new Date(),
-        workoutDuration: 0,
-        completedSets: 0,
-        groupId,
-        cheerCount: 0,
-      };
+    const liveStatus: LiveWorkoutStatus = {
+      userId,
+      username,
+      status: 'working-out',
+      currentExercise,
+      startTime: new Date(),
+      lastUpdateTime: new Date(),
+      workoutDuration: 0,
+      completedSets: 0,
+      groupId,
+      cheerCount: 0,
+    };
 
-      // Firestore에 저장
-      await setDoc(doc(db, 'liveWorkouts', userId), {
-        ...liveStatus,
-        startTime: serverTimestamp(),
-        lastUpdateTime: serverTimestamp(),
-      });
+    // 로컬 상태 업데이트
+    set({ myLiveStatus: liveStatus });
 
-      // 로컬 상태 업데이트
-      set({ myLiveStatus: liveStatus });
-
-      const newMap = new Map(get().liveWorkouts);
-      newMap.set(userId, liveStatus);
-      set({ liveWorkouts: newMap });
-    } catch (error) {
-      console.error('Error starting live workout:', error);
-    }
+    const newMap = new Map(get().liveWorkouts);
+    newMap.set(userId, liveStatus);
+    set({ liveWorkouts: newMap });
   },
 
   // 운동 상태 업데이트
   updateLiveWorkout: async (updates) => {
-    try {
-      const myStatus = get().myLiveStatus;
-      if (!myStatus) return;
+    const myStatus = get().myLiveStatus;
+    if (!myStatus) return;
 
-      await updateDoc(doc(db, 'liveWorkouts', myStatus.userId), {
-        ...updates,
-        lastUpdateTime: serverTimestamp(),
-      });
+    // 로컬 상태 업데이트
+    const updatedStatus = { ...myStatus, ...updates, lastUpdateTime: new Date() };
+    set({ myLiveStatus: updatedStatus });
 
-      // 로컬 상태 업데이트
-      const updatedStatus = { ...myStatus, ...updates, lastUpdateTime: new Date() };
-      set({ myLiveStatus: updatedStatus });
-
-      const newMap = new Map(get().liveWorkouts);
-      newMap.set(myStatus.userId, updatedStatus);
-      set({ liveWorkouts: newMap });
-    } catch (error) {
-      console.error('Error updating live workout:', error);
-    }
+    const newMap = new Map(get().liveWorkouts);
+    newMap.set(myStatus.userId, updatedStatus);
+    set({ liveWorkouts: newMap });
   },
 
   // 운동 종료
   endLiveWorkout: async (userId) => {
-    try {
-      await deleteDoc(doc(db, 'liveWorkouts', userId));
+    // 로컬 상태 업데이트
+    set({ myLiveStatus: null });
 
-      // 로컬 상태 업데이트
-      set({ myLiveStatus: null });
-
-      const newMap = new Map(get().liveWorkouts);
-      newMap.delete(userId);
-      set({ liveWorkouts: newMap });
-    } catch (error) {
-      console.error('Error ending live workout:', error);
-    }
+    const newMap = new Map(get().liveWorkouts);
+    newMap.delete(userId);
+    set({ liveWorkouts: newMap });
   },
 
   // 응원 보내기
   sendCheer: async (toUserId, type, content) => {
-    try {
-      const fromUser = get().myLiveStatus;
-      if (!fromUser) return;
+    const fromUser = get().myLiveStatus;
+    if (!fromUser) return;
 
-      const cheer: Cheer = {
-        id: uuid.v4() as string,
-        fromUserId: fromUser.userId,
-        fromUsername: fromUser.username,
-        toUserId,
-        type,
-        content,
-        timestamp: new Date(),
-      };
+    const cheer: Cheer = {
+      id: uuid.v4() as string,
+      fromUserId: fromUser.userId,
+      fromUsername: fromUser.username,
+      toUserId,
+      type,
+      content,
+      timestamp: new Date(),
+    };
 
-      // Firestore에 저장
-      await setDoc(doc(db, 'cheers', cheer.id), {
-        ...cheer,
-        timestamp: serverTimestamp(),
+    // 받는 사람의 응원 카운트 증가 (로컬)
+    const targetWorkout = get().liveWorkouts.get(toUserId);
+    if (targetWorkout) {
+      const newMap = new Map(get().liveWorkouts);
+      newMap.set(toUserId, {
+        ...targetWorkout,
+        cheerCount: (targetWorkout.cheerCount || 0) + 1,
       });
-
-      // 받는 사람의 응원 카운트 증가
-      const targetWorkout = get().liveWorkouts.get(toUserId);
-      if (targetWorkout) {
-        await updateDoc(doc(db, 'liveWorkouts', toUserId), {
-          cheerCount: (targetWorkout.cheerCount || 0) + 1,
-        });
-      }
-
-      // 로컬 상태 업데이트
-      set((state) => ({
-        sentCheers: [...state.sentCheers, cheer],
-      }));
-    } catch (error) {
-      console.error('Error sending cheer:', error);
+      set({ liveWorkouts: newMap });
     }
+
+    // 로컬 상태 업데이트
+    set((state) => ({
+      sentCheers: [...state.sentCheers, cheer],
+      receivedCheers: toUserId === fromUser.userId
+        ? [...state.receivedCheers, cheer]
+        : state.receivedCheers,
+    }));
   },
 
   // 응원 읽음 처리
@@ -218,39 +190,13 @@ const useLiveWorkoutStore = create<LiveWorkoutStore>((set, get) => ({
     set({ unreadCheersCount: 0 });
   },
 
-  // 실시간 운동 상태 리스닝
+  // 실시간 운동 상태 리스닝 (로컬 시뮬레이션)
   startListeningToLiveWorkouts: (groupId) => {
     if (get().isListeningToLiveWorkouts) return;
 
-    let q;
-    if (groupId) {
-      q = query(
-        collection(db, 'liveWorkouts'),
-        where('groupId', '==', groupId)
-      );
-    } else {
-      q = query(collection(db, 'liveWorkouts'));
-    }
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newMap = new Map<string, LiveWorkoutStatus>();
-
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        newMap.set(doc.id, {
-          ...data,
-          startTime: data.startTime?.toDate() || new Date(),
-          lastUpdateTime: data.lastUpdateTime?.toDate() || new Date(),
-        } as LiveWorkoutStatus);
-      });
-
-      set({
-        liveWorkouts: newMap,
-        isListeningToLiveWorkouts: true,
-      });
-    });
-
-    // unsubscribe 함수를 저장해야 함 (실제 구현 시)
+    // 실제 구현에서는 WebSocket이나 Firebase Realtime DB 사용
+    // 현재는 로컬 상태만 관리
+    set({ isListeningToLiveWorkouts: true });
   },
 
   // 리스닝 중지
@@ -259,43 +205,10 @@ const useLiveWorkoutStore = create<LiveWorkoutStore>((set, get) => ({
     set({ isListeningToLiveWorkouts: false });
   },
 
-  // 응원 메시지 리스닝
+  // 응원 메시지 리스닝 (로컬 시뮬레이션)
   startListeningToCheers: (userId) => {
-    const q = query(
-      collection(db, 'cheers'),
-      where('toUserId', '==', userId)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const cheers: Cheer[] = [];
-      let unreadCount = 0;
-
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const cheer = {
-          ...data,
-          timestamp: data.timestamp?.toDate() || new Date(),
-        } as Cheer;
-
-        cheers.push(cheer);
-
-        // 최근 5분 이내 응원은 unread로 카운트
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        if (cheer.timestamp > fiveMinutesAgo) {
-          unreadCount++;
-        }
-      });
-
-      // 시간순 정렬
-      cheers.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-      set({
-        receivedCheers: cheers,
-        unreadCheersCount: unreadCount,
-      });
-    });
-
-    // unsubscribe 함수를 저장해야 함
+    // 실제 구현에서는 WebSocket이나 Firebase Realtime DB 사용
+    // 현재는 로컬 상태만 관리
   },
 
   // 응원 리스닝 중지

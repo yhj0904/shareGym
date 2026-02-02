@@ -60,8 +60,14 @@ export interface Exercise {
 export interface Set {
   id: string;
   reps: number;
-  weight?: number; // kg
+  weight?: number; // kg (웨이트 트레이닝용)
+  distance?: number; // km (유산소 - 런닝, 싸이클 등)
+  level?: number; // 레벨 (유산소 - 머신 난이도)
+  speed?: number; // km/h (속도 - 런닝머신, 싸이클 등)
+  incline?: number; // % (경사도 - 런닝머신)
   duration?: number; // 초 단위 (유산소용)
+  score?: number; // 점수 (스포츠 - 배드민턴, 테니스 등)
+  minutes?: number; // 분 단위 (스포츠, 스트레칭 등의 운동 시간)
   completed: boolean;
   orderIndex: number;
 }
@@ -74,6 +80,7 @@ export interface ExerciseType {
   muscleGroups: MuscleGroup[];
   equipment?: string;
   icon?: string;
+  unit?: 'kg' | 'km' | 'level' | 'reps' | 'speed' | 'speed-incline' | 'score' | 'minutes'; // 운동 단위 타입
 }
 
 export type ExerciseCategory =
@@ -131,6 +138,146 @@ export interface WorkoutCard {
     exercises: string[];
   };
   style: 'minimal' | 'detailed' | 'colorful';
+  customOptions?: CardCustomOptions; // 커스텀 옵션 추가
+}
+
+// 카드 커스터마이징 옵션 타입
+export interface CardCustomOptions {
+  // 색상 설정
+  backgroundType: 'solid' | 'gradient' | 'image' | 'pattern';
+  backgroundColor?: string;
+  gradientColors?: string[];
+  gradientAngle?: number; // 그라데이션 각도 (0-360)
+  gradientType?: 'linear' | 'radial'; // 그라데이션 타입
+  backgroundImage?: string;
+  backgroundOpacity?: number; // 배경 투명도
+  backgroundPattern?: 'dots' | 'lines' | 'grid' | 'waves'; // 배경 패턴
+
+  // 텍스트 설정 (개별 요소별)
+  primaryTextColor: string;
+  secondaryTextColor: string;
+  fontSize: 'small' | 'medium' | 'large' | 'custom';
+  customFontSize?: number; // fontSize가 'custom'일 때 사용
+  fontFamily?: string;
+
+  // 개별 텍스트 스타일링
+  titleStyle?: {
+    color?: string;
+    fontSize?: number;
+    fontWeight?: string;
+    fontStyle?: 'normal' | 'italic';
+    textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+    letterSpacing?: number;
+  };
+  subtitleStyle?: {
+    color?: string;
+    fontSize?: number;
+    fontWeight?: string;
+  };
+  statsStyle?: {
+    valueColor?: string;
+    labelColor?: string;
+    fontSize?: number;
+  };
+
+  // 레이아웃 설정
+  layout: 'classic' | 'modern' | 'minimal' | 'detailed' | 'compact' | 'expanded';
+  padding?: number; // 내부 패딩
+  spacing?: number; // 요소 간격
+  alignment?: 'left' | 'center' | 'right'; // 정렬
+
+  // 로고/브랜딩
+  showLogo: boolean;
+  logoPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+  logoSize?: number;
+  customLogo?: string; // 커스텀 로고 URL
+  watermarkText?: string; // 워터마크 텍스트
+  watermarkOpacity?: number;
+
+  // 정보 표시 설정
+  showStats: {
+    duration: boolean;
+    volume: boolean;
+    sets: boolean;
+    distance: boolean;
+    calories: boolean;
+    heartRate?: boolean; // 심박수
+    intensity?: boolean; // 운동 강도
+  };
+
+  // 통계 아이콘 커스터마이징
+  statsIcons?: {
+    duration?: string;
+    volume?: string;
+    sets?: string;
+    distance?: string;
+    calories?: string;
+  };
+  iconSize?: number;
+  iconColor?: string;
+
+  // 운동 목록 설정
+  showExerciseList: boolean;
+  maxExercisesToShow: number;
+  exerciseListStyle?: {
+    showNumbers?: boolean; // 번호 표시
+    showSets?: boolean; // 세트 정보 표시
+    showWeight?: boolean; // 무게 정보 표시
+    highlightPR?: boolean; // PR 하이라이트
+    colorByMuscle?: boolean; // 근육군별 색상 구분
+  };
+  muscleColors?: { // 근육군별 색상
+    chest?: string;
+    back?: string;
+    shoulders?: string;
+    legs?: string;
+    arms?: string;
+    abs?: string;
+    cardio?: string;
+  };
+
+  // 추가 요소
+  title?: string;
+  subtitle?: string;
+  motivationalQuote?: string; // 동기부여 문구
+  hashtags?: string[];
+  showDate: boolean;
+  dateFormat?: 'short' | 'long' | 'relative' | 'custom';
+  customDateFormat?: string; // dateFormat이 'custom'일 때 사용
+  showTime?: boolean; // 운동 시간대 표시
+  showWeather?: string; // 날씨 정보 (아이콘)
+  showMood?: string; // 기분/컨디션 이모지
+
+  // 칼로리 계산
+  showCalorieBreakdown?: boolean; // 칼로리 상세 분석
+  calorieGoal?: number; // 목표 칼로리
+
+  // 테두리 및 효과
+  borderRadius: number;
+  borderStyle?: 'solid' | 'dashed' | 'double'; // 테두리 스타일
+  shadowEnabled: boolean;
+  shadowColor?: string;
+  shadowIntensity?: number; // 그림자 강도
+  borderColor?: string;
+  borderWidth?: number;
+
+  // 애니메이션 효과 (저장 시 적용)
+  animationStyle?: 'none' | 'fade' | 'slide' | 'zoom';
+
+  // QR 코드
+  showQRCode?: boolean; // QR 코드 표시
+  qrCodeData?: string; // QR 코드 데이터
+  qrCodePosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+}
+
+// 프리셋 저장 타입
+export interface CardPreset {
+  id: string;
+  name: string;
+  description?: string;
+  options: CardCustomOptions;
+  createdAt: Date;
+  isDefault?: boolean;
 }
 
 // 뱃지 시스템

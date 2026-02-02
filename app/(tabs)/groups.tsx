@@ -12,6 +12,7 @@ import {
   Platform,
   FlatList,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ import { router } from 'expo-router';
 export default function GroupsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets(); // Safe area insets 추가
   const { user } = useAuthStore();
   const { groups, isLoading, fetchUserGroups, createGroup, joinGroupWithCode, selectGroup } = useGroupStore();
 
@@ -116,7 +118,10 @@ export default function GroupsScreen() {
   if (!user) {
     return (
       <ThemedView style={styles.container}>
-        <ThemedView style={styles.header}>
+        <ThemedView style={[styles.header, {
+          paddingTop: insets.top,
+          borderBottomColor: colorScheme === 'dark' ? '#333' : '#eee', // 다크모드 대응
+        }]}>
           <ThemedText type="title">그룹</ThemedText>
           <ThemedText type="subtitle">함께 운동하는 사람들</ThemedText>
         </ThemedView>
@@ -138,7 +143,10 @@ export default function GroupsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedView style={styles.header}>
+      <ThemedView style={[styles.header, {
+        paddingTop: insets.top,
+        borderBottomColor: colorScheme === 'dark' ? '#333' : '#eee', // 다크모드 대응
+      }]}>
         <ThemedText type="title">그룹</ThemedText>
         <ThemedText type="subtitle">함께 운동하는 사람들</ThemedText>
       </ThemedView>
@@ -155,7 +163,9 @@ export default function GroupsScreen() {
           </Pressable>
 
           <Pressable
-            style={[styles.actionButton, styles.secondaryButton]}
+            style={[styles.actionButton, styles.secondaryButton, {
+              borderColor: colors.tint, // 다크모드 대응 (colors.tint 사용)
+            }]}
             onPress={() => setShowJoinModal(true)}
           >
             <Ionicons name="enter-outline" size={24} color={colors.tint} />
@@ -176,10 +186,14 @@ export default function GroupsScreen() {
             {groups.map((group) => (
               <Pressable
                 key={group.id}
-                style={styles.groupCard}
+                style={[styles.groupCard, {
+                  backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+                }]}
                 onPress={() => handleGroupPress(group.id)}
               >
-                <View style={styles.groupIcon}>
+                <View style={[styles.groupIcon, {
+                  backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f0f0f0', // 다크모드 대응
+                }]}>
                   <Ionicons name="people" size={32} color={colors.tint} />
                 </View>
                 <View style={styles.groupInfo}>
@@ -189,7 +203,9 @@ export default function GroupsScreen() {
                   </ThemedText>
                 </View>
                 <View style={styles.groupMeta}>
-                  <View style={styles.inviteCodeBadge}>
+                  <View style={[styles.inviteCodeBadge, {
+                    backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f0f0f0', // 다크모드 대응
+                  }]}>
                     <ThemedText style={styles.inviteCodeText}>
                       {group.inviteCode}
                     </ThemedText>
@@ -221,9 +237,13 @@ export default function GroupsScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
+          style={[styles.modalContainer, {
+            backgroundColor: colors.background, // 다크모드 대응
+          }]}
         >
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, {
+            borderBottomColor: colorScheme === 'dark' ? '#333' : '#eee', // 다크모드 대응
+          }]}>
             <Pressable onPress={() => setShowCreateModal(false)}>
               <ThemedText style={styles.modalCancel}>취소</ThemedText>
             </Pressable>
@@ -239,7 +259,10 @@ export default function GroupsScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.inputLabel}>그룹 이름</ThemedText>
               <TextInput
-                style={[styles.input, { color: colors.text }]}
+                style={[styles.input, {
+                  color: colors.text,
+                  backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5', // 다크모드 대응
+                }]}
                 placeholder="예: 헬스장 친구들"
                 placeholderTextColor="#999"
                 value={groupName}
@@ -251,7 +274,10 @@ export default function GroupsScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.inputLabel}>설명 (선택)</ThemedText>
               <TextInput
-                style={[styles.input, styles.textArea, { color: colors.text }]}
+                style={[styles.input, styles.textArea, {
+                  color: colors.text,
+                  backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5', // 다크모드 대응
+                }]}
                 placeholder="그룹 설명을 입력하세요"
                 placeholderTextColor="#999"
                 value={groupDescription}
@@ -262,7 +288,9 @@ export default function GroupsScreen() {
               />
             </View>
 
-            <View style={styles.infoBox}>
+            <View style={[styles.infoBox, {
+              backgroundColor: colorScheme === 'dark' ? 'rgba(0,122,255,0.15)' : '#f0f8ff', // 다크모드 대응
+            }]}>
               <Ionicons name="information-circle-outline" size={20} color={colors.tint} />
               <ThemedText style={styles.infoText}>
                 그룹을 만들면 6자리 초대 코드가 생성됩니다.{'\n'}
@@ -282,9 +310,13 @@ export default function GroupsScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
+          style={[styles.modalContainer, {
+            backgroundColor: colors.background, // 다크모드 대응
+          }]}
         >
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, {
+            borderBottomColor: colorScheme === 'dark' ? '#333' : '#eee', // 다크모드 대응
+          }]}>
             <Pressable onPress={() => setShowJoinModal(false)}>
               <ThemedText style={styles.modalCancel}>취소</ThemedText>
             </Pressable>
@@ -300,7 +332,10 @@ export default function GroupsScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.inputLabel}>초대 코드</ThemedText>
               <TextInput
-                style={[styles.input, styles.codeInput, { color: colors.text }]}
+                style={[styles.input, styles.codeInput, {
+                  color: colors.text,
+                  backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5', // 다크모드 대응
+                }]}
                 placeholder="6자리 코드 입력"
                 placeholderTextColor="#999"
                 value={inviteCode}
@@ -310,7 +345,9 @@ export default function GroupsScreen() {
               />
             </View>
 
-            <View style={styles.infoBox}>
+            <View style={[styles.infoBox, {
+              backgroundColor: colorScheme === 'dark' ? 'rgba(0,122,255,0.15)' : '#f0f8ff', // 다크모드 대응
+            }]}>
               <Ionicons name="information-circle-outline" size={20} color={colors.tint} />
               <ThemedText style={styles.infoText}>
                 친구로부터 받은 6자리 초대 코드를 입력하세요.
@@ -319,6 +356,9 @@ export default function GroupsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+    </ThemedView>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -326,9 +366,9 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    paddingTop: 60,
+    // paddingTop은 컴포넌트에서 동적으로 설정
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    // borderBottomColor는 인라인으로 동적 적용 (다크모드 대응)
   },
   content: {
     flex: 1,
@@ -372,7 +412,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#007AFF',
+    // borderColor는 인라인으로 동적 적용 (다크모드 대응)
   },
   actionButtonText: {
     color: 'white',
@@ -395,7 +435,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: 'white',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     borderRadius: 12,
     marginBottom: 8,
     shadowColor: '#000',
@@ -408,7 +448,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#f0f0f0',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -431,7 +471,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   inviteCodeBadge: {
-    backgroundColor: '#f0f0f0',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -458,7 +498,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'white',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
   },
   modalHeader: {
     flexDirection: 'row',
@@ -466,7 +506,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    // borderBottomColor는 인라인으로 동적 적용 (다크모드 대응)
   },
   modalCancel: {
     fontSize: 16,
@@ -493,7 +533,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   input: {
-    backgroundColor: '#f5f5f5',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     padding: 16,
     borderRadius: 8,
     fontSize: 16,
@@ -510,7 +550,7 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#f0f8ff',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     padding: 16,
     borderRadius: 8,
     gap: 12,

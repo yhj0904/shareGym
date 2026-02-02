@@ -4,11 +4,11 @@ import {
   ScrollView,
   Pressable,
   View,
-  SafeAreaView,
   Share,
   Modal,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { router } from 'expo-router';
@@ -20,8 +20,11 @@ import { formatDuration } from '@/utils/time';
 import { exerciseDatabase } from '@/data/exercises';
 
 export default function SessionCompleteScreen() {
+  // 테마 및 색상 설정
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  // Safe Area Insets - 상단/하단 안전 영역 패딩 설정
+  const insets = useSafeAreaInsets();
   const { lastWorkout } = useWorkoutStore();
   const [showCardModal, setShowCardModal] = useState(false);
 
@@ -37,11 +40,11 @@ export default function SessionCompleteScreen() {
 
   if (!lastWorkout) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ThemedView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <ThemedView style={styles.emptyContainer}>
           <ThemedText>운동 기록이 없습니다</ThemedText>
         </ThemedView>
-      </SafeAreaView>
+      </ThemedView>
     );
   }
 
@@ -51,14 +54,36 @@ export default function SessionCompleteScreen() {
     (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
     0
   );
+
+  // 웨이트 트레이닝 통계
   const totalVolume = lastWorkout.exercises.reduce((acc, ex) => {
-    return acc + ex.sets.reduce((setAcc, set) => {
-      if (set.completed && set.weight) {
-        return setAcc + (set.weight * set.reps);
-      }
-      return setAcc;
-    }, 0);
+    const exerciseType = exerciseDatabase.find(e => e.id === ex.exerciseTypeId);
+    if (exerciseType?.category !== 'cardio') {
+      return acc + ex.sets.reduce((setAcc, set) => {
+        if (set.completed && set.weight) {
+          return setAcc + (set.weight * set.reps);
+        }
+        return setAcc;
+      }, 0);
+    }
+    return acc;
   }, 0);
+
+  // 유산소 운동 통계
+  const cardioStats = lastWorkout.exercises.reduce((acc, ex) => {
+    const exerciseType = exerciseDatabase.find(e => e.id === ex.exerciseTypeId);
+    if (exerciseType?.category === 'cardio') {
+      ex.sets.forEach(set => {
+        if (set.completed) {
+          if (set.distance) acc.totalDistance += set.distance;
+          if (set.duration) acc.totalDuration += set.duration;
+          acc.cardioSets += 1;
+        }
+      });
+    }
+    return acc;
+  }, { totalDistance: 0, totalDuration: 0, cardioSets: 0 });
+
   const totalReps = lastWorkout.exercises.reduce((acc, ex) => {
     return acc + ex.sets.reduce((setAcc, set) => {
       if (set.completed) {
@@ -79,7 +104,7 @@ export default function SessionCompleteScreen() {
       `📊 총 볼륨: ${totalVolume.toLocaleString()}kg\n` +
       `🎯 완료 세트: ${completedSets}/${totalSets}\n\n` +
       `운동 내용:\n${exerciseList}\n\n` +
-      `#ShareGym #오운완`;
+      `#쉐어핏 #오운완`;
 
     try {
       await Share.share({
@@ -91,8 +116,11 @@ export default function SessionCompleteScreen() {
   };
 
   const handleCreateCard = () => {
+    // 모달을 먼저 닫고 애니메이션이 완료된 후 화면 이동
     setShowCardModal(false);
-    router.push('/card/create');
+    setTimeout(() => {
+      router.push('/card/create');
+    }, 300); // 모달 페이드 아웃 애니메이션 시간
   };
 
   const handleSkipCard = () => {
@@ -104,7 +132,7 @@ export default function SessionCompleteScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ThemedView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* 헤더 */}
         <ThemedView style={styles.header}>
@@ -115,7 +143,9 @@ export default function SessionCompleteScreen() {
 
         {/* 요약 통계 */}
         <ThemedView style={styles.summaryContainer}>
-          <ThemedView style={styles.statCard}>
+          <ThemedView style={[styles.statCard, {
+            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+          }]}>
             <Ionicons name="time-outline" size={24} color={colors.tint} />
             <ThemedText style={styles.statValue}>
               {formatDuration(lastWorkout.totalDuration)}
@@ -123,26 +153,53 @@ export default function SessionCompleteScreen() {
             <ThemedText style={styles.statLabel}>운동 시간</ThemedText>
           </ThemedView>
 
-          <ThemedView style={styles.statCard}>
-            <Ionicons name="barbell-outline" size={24} color={colors.tint} />
-            <ThemedText style={styles.statValue}>
-              {totalVolume.toLocaleString()}kg
-            </ThemedText>
-            <ThemedText style={styles.statLabel}>총 볼륨</ThemedText>
-          </ThemedView>
+          {/* 웨이트 트레이닝 볼륨 (있는 경우만 표시) */}
+          {totalVolume > 0 && (
+            <ThemedView style={[styles.statCard, {
+              backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+            }]}>
+              <Ionicons name="barbell-outline" size={24} color={colors.tint} />
+              <ThemedText style={styles.statValue}>
+                {totalVolume.toLocaleString()}kg
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>총 볼륨</ThemedText>
+            </ThemedView>
+          )}
 
-          <ThemedView style={styles.statCard}>
+          {/* 유산소 운동 거리 (있는 경우만 표시) */}
+          {cardioStats.totalDistance > 0 && (
+            <ThemedView style={[styles.statCard, {
+              backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+            }]}>
+              <Ionicons name="navigate-outline" size={24} color={colors.tint} />
+              <ThemedText style={styles.statValue}>
+                {cardioStats.totalDistance.toFixed(1)}km
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>총 거리</ThemedText>
+            </ThemedView>
+          )}
+
+          {/* 유산소 운동 시간 (있는 경우만 표시) */}
+          {cardioStats.totalDuration > 0 && (
+            <ThemedView style={[styles.statCard, {
+              backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+            }]}>
+              <Ionicons name="timer-outline" size={24} color={colors.tint} />
+              <ThemedText style={styles.statValue}>
+                {Math.round(cardioStats.totalDuration / 60)}분
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>유산소 시간</ThemedText>
+            </ThemedView>
+          )}
+
+          <ThemedView style={[styles.statCard, {
+            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+          }]}>
             <Ionicons name="fitness-outline" size={24} color={colors.tint} />
             <ThemedText style={styles.statValue}>
               {completedSets}/{totalSets}
             </ThemedText>
             <ThemedText style={styles.statLabel}>완료 세트</ThemedText>
-          </ThemedView>
-
-          <ThemedView style={styles.statCard}>
-            <Ionicons name="repeat-outline" size={24} color={colors.tint} />
-            <ThemedText style={styles.statValue}>{totalReps}</ThemedText>
-            <ThemedText style={styles.statLabel}>총 반복수</ThemedText>
           </ThemedView>
         </ThemedView>
 
@@ -152,22 +209,64 @@ export default function SessionCompleteScreen() {
           {lastWorkout.exercises.map((exercise, index) => {
             const exerciseType = exerciseDatabase.find(e => e.id === exercise.exerciseTypeId);
             const completedSets = exercise.sets.filter(s => s.completed);
-            const maxWeight = Math.max(...completedSets.map(s => s.weight || 0));
+            const isCardio = exerciseType?.category === 'cardio';
+            const unit = exerciseType?.unit || 'kg';
+
+            // 운동 타입에 따른 요약 정보
+            let summaryText = `${completedSets.length}세트`;
+            if (isCardio) {
+              if (unit === 'km') {
+                const totalDistance = completedSets.reduce((acc, s) => acc + (s.distance || 0), 0);
+                summaryText += ` • 총 ${totalDistance.toFixed(1)}km`;
+              } else if (unit === 'level') {
+                const maxLevel = Math.max(...completedSets.map(s => s.level || 0));
+                summaryText += ` • 최고 레벨 ${maxLevel}`;
+              }
+            } else {
+              const maxWeight = Math.max(...completedSets.map(s => s.weight || 0));
+              if (maxWeight > 0) {
+                summaryText += ` • 최고 ${maxWeight}kg`;
+              }
+            }
 
             return (
-              <ThemedView key={index} style={styles.exerciseItem}>
+              <ThemedView key={index} style={[styles.exerciseItem, {
+                backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white', // 다크모드 대응
+              }]}>
                 <ThemedText style={styles.exerciseName}>
                   {exerciseType?.nameKo || exercise.exerciseTypeId}
                 </ThemedText>
                 <ThemedText style={styles.exerciseDetail}>
-                  {completedSets.length}세트 • 최고 {maxWeight}kg
+                  {summaryText}
                 </ThemedText>
                 <View style={styles.setDetails}>
-                  {completedSets.map((set, setIndex) => (
-                    <ThemedText key={setIndex} style={styles.setDetail}>
-                      세트 {setIndex + 1}: {set.weight}kg × {set.reps}회
-                    </ThemedText>
-                  ))}
+                  {completedSets.map((set, setIndex) => {
+                    let setDetailText = `세트 ${setIndex + 1}: `;
+
+                    if (isCardio) {
+                      if (unit === 'km') {
+                        setDetailText += `${set.distance || 0}km`;
+                        if (set.duration) {
+                          setDetailText += ` • ${Math.round(set.duration / 60)}분`;
+                        }
+                      } else if (unit === 'level') {
+                        setDetailText += `레벨 ${set.level || 0}`;
+                        if (set.duration) {
+                          setDetailText += ` • ${Math.round(set.duration / 60)}분`;
+                        }
+                      } else {
+                        setDetailText += `${set.reps}회`;
+                      }
+                    } else {
+                      setDetailText += `${set.weight || 0}kg × ${set.reps}회`;
+                    }
+
+                    return (
+                      <ThemedText key={setIndex} style={styles.setDetail}>
+                        {setDetailText}
+                      </ThemedText>
+                    );
+                  })}
                 </View>
               </ThemedView>
             );
@@ -185,7 +284,9 @@ export default function SessionCompleteScreen() {
           </Pressable>
 
           <Pressable
-            style={[styles.actionButton, styles.secondaryButton]}
+            style={[styles.actionButton, styles.secondaryButton, {
+              backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5', // 다크모드 대응
+            }]}
             onPress={handleShare}
           >
             <Ionicons name="share-outline" size={24} color={colors.text} />
@@ -250,7 +351,9 @@ export default function SessionCompleteScreen() {
               </Pressable>
 
               <Pressable
-                style={[styles.modalButton, styles.skipButton]}
+                style={[styles.modalButton, styles.skipButton, {
+                  borderColor: colorScheme === 'dark' ? '#444' : '#ddd', // 다크모드 대응
+                }]}
                 onPress={handleSkipCard}
               >
                 <ThemedText style={[styles.modalButtonText, { color: colors.text }]}>
@@ -261,7 +364,7 @@ export default function SessionCompleteScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </ThemedView>
   );
 }
 
@@ -297,7 +400,7 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: 'white',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     padding: 20,
     borderRadius: 12,
     alignItems: 'center',
@@ -324,7 +427,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   exerciseItem: {
-    backgroundColor: 'white',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
@@ -359,7 +462,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   secondaryButton: {
-    backgroundColor: '#f5f5f5',
+    // backgroundColor는 인라인으로 동적 적용 (다크모드 대응)
   },
   actionButtonText: {
     fontSize: 16,
@@ -442,6 +545,6 @@ const styles = StyleSheet.create({
   skipButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#ddd',
+    // borderColor는 인라인으로 동적 적용 (다크모드 대응)
   },
 });

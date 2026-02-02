@@ -1,22 +1,24 @@
 import { create } from 'zustand';
-import {
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db } from '@/config/firebase';
 import { FeedItem, WorkoutSession, Comment } from '@/types';
 import uuid from 'react-native-uuid';
+
+// Firebase imports - 실제 구현 시 활성화
+// import {
+//   collection,
+//   doc,
+//   setDoc,
+//   getDoc,
+//   getDocs,
+//   updateDoc,
+//   deleteDoc,
+//   query,
+//   where,
+//   orderBy,
+//   limit,
+//   startAfter,
+//   serverTimestamp,
+// } from 'firebase/firestore';
+// import { db } from '@/config/firebase';
 
 interface FeedStore {
   feedItems: FeedItem[];
@@ -42,54 +44,93 @@ interface FeedStore {
   deleteComment: (feedItemId: string, commentId: string) => Promise<void>;
 }
 
+// Mock 데이터 생성 헬퍼
+const generateMockFeedItems = (): FeedItem[] => [
+  {
+    id: '1',
+    userId: 'user2',
+    workoutId: 'workout1',
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2시간 전
+    likes: ['test-user', 'user3'],
+    comments: [
+      {
+        id: 'comment1',
+        userId: 'test-user',
+        content: '대단하네요! 💪',
+        createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+      }
+    ],
+    workoutData: {
+      id: 'workout1',
+      userId: 'user2',
+      startTime: new Date(Date.now() - 3 * 60 * 60 * 1000),
+      endTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      exercises: [
+        {
+          id: '1',
+          name: '벤치프레스',
+          category: 'chest',
+          sets: [
+            { id: '1', weight: 60, reps: 10, isCompleted: true },
+            { id: '2', weight: 70, reps: 8, isCompleted: true },
+            { id: '3', weight: 80, reps: 6, isCompleted: true },
+          ]
+        }
+      ],
+      totalVolume: 2920,
+      duration: 3600,
+      caloriesBurned: 250,
+    }
+  },
+  {
+    id: '2',
+    userId: 'user3',
+    workoutId: 'workout2',
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 어제
+    likes: ['user2'],
+    comments: [],
+    workoutData: {
+      id: 'workout2',
+      userId: 'user3',
+      startTime: new Date(Date.now() - 25 * 60 * 60 * 1000),
+      endTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      exercises: [
+        {
+          id: '2',
+          name: '스쿼트',
+          category: 'legs',
+          sets: [
+            { id: '1', weight: 80, reps: 10, isCompleted: true },
+            { id: '2', weight: 90, reps: 8, isCompleted: true },
+            { id: '3', weight: 100, reps: 6, isCompleted: true },
+          ]
+        }
+      ],
+      totalVolume: 3520,
+      duration: 3600,
+      caloriesBurned: 300,
+    }
+  },
+];
+
 const useFeedStore = create<FeedStore>((set, get) => ({
-  feedItems: [],
+  feedItems: generateMockFeedItems(),
   isLoading: false,
   isRefreshing: false,
-  hasMore: true,
+  hasMore: false,
   lastVisible: null,
 
   fetchFeed: async (userId?: string) => {
     set({ isLoading: true });
     try {
-      let q;
-      if (userId) {
-        // 특정 사용자의 피드
-        q = query(
-          collection(db, 'feed'),
-          where('userId', '==', userId),
-          orderBy('createdAt', 'desc'),
-          limit(10)
-        );
-      } else {
-        // 전체 공개 피드
-        q = query(
-          collection(db, 'feed'),
-          where('isPublic', '==', true),
-          orderBy('createdAt', 'desc'),
-          limit(10)
-        );
-      }
+      // Mock 구현: 모든 피드 아이템 반환
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      const querySnapshot = await getDocs(q);
-      const items: FeedItem[] = [];
-
-      for (const doc of querySnapshot.docs) {
-        const data = doc.data();
-        items.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as FeedItem);
-      }
-
-      const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-
+      const mockFeed = generateMockFeedItems();
       set({
-        feedItems: items,
-        lastVisible: lastDoc,
-        hasMore: querySnapshot.docs.length === 10,
+        feedItems: mockFeed,
         isLoading: false,
+        hasMore: false // Mock에서는 추가 로드 없음
       });
     } catch (error) {
       console.error('Error fetching feed:', error);
@@ -98,43 +139,36 @@ const useFeedStore = create<FeedStore>((set, get) => ({
   },
 
   fetchUserFeed: async (userId: string) => {
-    await get().fetchFeed(userId);
+    set({ isLoading: true });
+    try {
+      // Mock 구현: 특정 사용자의 피드만 필터링
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const userFeed = get().feedItems.filter(item => item.userId === userId);
+      set({
+        feedItems: userFeed,
+        isLoading: false,
+        hasMore: false
+      });
+    } catch (error) {
+      console.error('Error fetching user feed:', error);
+      set({ isLoading: false });
+    }
   },
 
   fetchFollowingFeed: async (followingIds: string[]) => {
-    if (followingIds.length === 0) {
-      set({ feedItems: [], isLoading: false });
-      return;
-    }
-
     set({ isLoading: true });
     try {
-      const q = query(
-        collection(db, 'feed'),
-        where('userId', 'in', followingIds),
-        orderBy('createdAt', 'desc'),
-        limit(10)
+      // Mock 구현: 팔로잉한 사용자들의 피드 필터링
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const followingFeed = get().feedItems.filter(item =>
+        followingIds.includes(item.userId)
       );
-
-      const querySnapshot = await getDocs(q);
-      const items: FeedItem[] = [];
-
-      for (const doc of querySnapshot.docs) {
-        const data = doc.data();
-        items.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as FeedItem);
-      }
-
-      const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-
       set({
-        feedItems: items,
-        lastVisible: lastDoc,
-        hasMore: querySnapshot.docs.length === 10,
+        feedItems: followingFeed,
         isLoading: false,
+        hasMore: false
       });
     } catch (error) {
       console.error('Error fetching following feed:', error);
@@ -143,75 +177,52 @@ const useFeedStore = create<FeedStore>((set, get) => ({
   },
 
   loadMore: async () => {
-    const { lastVisible, hasMore } = get();
-    if (!hasMore || !lastVisible) return;
+    // Mock 구현: 추가 로드 없음
+    if (!get().hasMore || get().isLoading) return;
 
-    try {
-      const q = query(
-        collection(db, 'feed'),
-        where('isPublic', '==', true),
-        orderBy('createdAt', 'desc'),
-        startAfter(lastVisible),
-        limit(10)
-      );
-
-      const querySnapshot = await getDocs(q);
-      const items: FeedItem[] = [];
-
-      for (const doc of querySnapshot.docs) {
-        const data = doc.data();
-        items.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as FeedItem);
-      }
-
-      const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-
-      set((state) => ({
-        feedItems: [...state.feedItems, ...items],
-        lastVisible: lastDoc,
-        hasMore: querySnapshot.docs.length === 10,
-      }));
-    } catch (error) {
-      console.error('Error loading more:', error);
-    }
+    set({ isLoading: true });
+    await new Promise(resolve => setTimeout(resolve, 500));
+    set({ isLoading: false });
   },
 
   refreshFeed: async () => {
     set({ isRefreshing: true });
-    await get().fetchFeed();
-    set({ isRefreshing: false });
+    try {
+      // Mock 구현: 피드 새로고침
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const refreshedFeed = generateMockFeedItems();
+      set({
+        feedItems: refreshedFeed,
+        isRefreshing: false,
+        hasMore: false
+      });
+    } catch (error) {
+      console.error('Error refreshing feed:', error);
+      set({ isRefreshing: false });
+    }
   },
 
   shareWorkout: async (workout: WorkoutSession, userId: string) => {
     try {
-      const feedItem: Omit<FeedItem, 'id'> = {
+      // Mock 구현: 새 피드 아이템 생성
+      const newFeedItem: FeedItem = {
+        id: uuid.v4() as string,
         userId,
-        type: 'workout',
-        content: workout,
+        workoutId: workout.id,
+        createdAt: new Date(),
         likes: [],
         comments: [],
-        createdAt: new Date(),
+        workoutData: workout,
       };
 
-      const docRef = doc(collection(db, 'feed'));
-      await setDoc(docRef, {
-        ...feedItem,
-        createdAt: serverTimestamp(),
-      });
-
-      // 로컬 상태 업데이트
+      // 피드 최상단에 추가
       set((state) => ({
-        feedItems: [
-          {
-            id: docRef.id,
-            ...feedItem,
-          } as FeedItem,
-          ...state.feedItems,
-        ],
+        feedItems: [newFeedItem, ...state.feedItems],
       }));
+
+      // 약간의 지연 추가
+      await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
       console.error('Error sharing workout:', error);
       throw error;
@@ -220,76 +231,73 @@ const useFeedStore = create<FeedStore>((set, get) => ({
 
   likePost: async (feedItemId: string, userId: string) => {
     try {
-      const feedRef = doc(db, 'feed', feedItemId);
-      const feedDoc = await getDoc(feedRef);
+      // Mock 구현: 좋아요 추가
+      set((state) => ({
+        feedItems: state.feedItems.map(item => {
+          if (item.id === feedItemId && !item.likes.includes(userId)) {
+            return {
+              ...item,
+              likes: [...item.likes, userId],
+            };
+          }
+          return item;
+        }),
+      }));
 
-      if (feedDoc.exists()) {
-        const likes = feedDoc.data().likes || [];
-        if (!likes.includes(userId)) {
-          await updateDoc(feedRef, {
-            likes: [...likes, userId],
-          });
-
-          // 로컬 상태 업데이트
-          set((state) => ({
-            feedItems: state.feedItems.map((item) =>
-              item.id === feedItemId
-                ? { ...item, likes: [...item.likes, userId] }
-                : item
-            ),
-          }));
-        }
-      }
+      // 약간의 지연 추가
+      await new Promise(resolve => setTimeout(resolve, 200));
     } catch (error) {
       console.error('Error liking post:', error);
+      throw error;
     }
   },
 
   unlikePost: async (feedItemId: string, userId: string) => {
     try {
-      const feedRef = doc(db, 'feed', feedItemId);
-      const feedDoc = await getDoc(feedRef);
+      // Mock 구현: 좋아요 제거
+      set((state) => ({
+        feedItems: state.feedItems.map(item => {
+          if (item.id === feedItemId) {
+            return {
+              ...item,
+              likes: item.likes.filter(id => id !== userId),
+            };
+          }
+          return item;
+        }),
+      }));
 
-      if (feedDoc.exists()) {
-        const likes = feedDoc.data().likes || [];
-        await updateDoc(feedRef, {
-          likes: likes.filter((id: string) => id !== userId),
-        });
-
-        // 로컬 상태 업데이트
-        set((state) => ({
-          feedItems: state.feedItems.map((item) =>
-            item.id === feedItemId
-              ? { ...item, likes: item.likes.filter(id => id !== userId) }
-              : item
-          ),
-        }));
-      }
+      // 약간의 지연 추가
+      await new Promise(resolve => setTimeout(resolve, 200));
     } catch (error) {
       console.error('Error unliking post:', error);
+      throw error;
     }
   },
 
   addComment: async (feedItemId: string, comment: Comment) => {
     try {
-      const feedRef = doc(db, 'feed', feedItemId);
-      const feedDoc = await getDoc(feedRef);
+      // Mock 구현: 댓글 추가
+      const newComment: Comment = {
+        ...comment,
+        id: uuid.v4() as string,
+        createdAt: new Date(),
+      };
 
-      if (feedDoc.exists()) {
-        const comments = feedDoc.data().comments || [];
-        await updateDoc(feedRef, {
-          comments: [...comments, comment],
-        });
+      set((state) => ({
+        feedItems: state.feedItems.map(item => {
+          if (item.id === feedItemId) {
+            return {
+              ...item,
+              comments: [...item.comments, newComment],
+            };
+          }
+          return item;
+        }),
+      }));
 
-        // 로컬 상태 업데이트
-        set((state) => ({
-          feedItems: state.feedItems.map((item) =>
-            item.id === feedItemId
-              ? { ...item, comments: [...item.comments, comment] }
-              : item
-          ),
-        }));
-      }
+      // 약간의 지연 추가
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (error) {
       console.error('Error adding comment:', error);
       throw error;
@@ -298,26 +306,24 @@ const useFeedStore = create<FeedStore>((set, get) => ({
 
   deleteComment: async (feedItemId: string, commentId: string) => {
     try {
-      const feedRef = doc(db, 'feed', feedItemId);
-      const feedDoc = await getDoc(feedRef);
+      // Mock 구현: 댓글 삭제
+      set((state) => ({
+        feedItems: state.feedItems.map(item => {
+          if (item.id === feedItemId) {
+            return {
+              ...item,
+              comments: item.comments.filter(c => c.id !== commentId),
+            };
+          }
+          return item;
+        }),
+      }));
 
-      if (feedDoc.exists()) {
-        const comments = feedDoc.data().comments || [];
-        await updateDoc(feedRef, {
-          comments: comments.filter((c: Comment) => c.id !== commentId),
-        });
-
-        // 로컬 상태 업데이트
-        set((state) => ({
-          feedItems: state.feedItems.map((item) =>
-            item.id === feedItemId
-              ? { ...item, comments: item.comments.filter(c => c.id !== commentId) }
-              : item
-          ),
-        }));
-      }
+      // 약간의 지연 추가
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (error) {
       console.error('Error deleting comment:', error);
+      throw error;
     }
   },
 }));

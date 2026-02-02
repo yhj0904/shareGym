@@ -4,23 +4,28 @@ import {
   Text,
   StyleSheet,
   Dimensions,
+  ImageBackground,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { WorkoutSession } from '@/types';
+import { WorkoutSession, CardCustomOptions } from '@/types';
 import { formatDuration } from '@/utils/time';
 import { exerciseDatabase } from '@/data/exercises';
 import { Ionicons } from '@expo/vector-icons';
+import { spacing, fontSize, typography } from '@/styles/common';
+import { gradientColors } from '@/constants/Colors';
 
 interface WorkoutCardTemplateProps {
   workout: WorkoutSession;
-  style: 'minimal' | 'gradient' | 'dark' | 'colorful';
+  style?: 'minimal' | 'gradient' | 'dark' | 'colorful' | 'ocean' | 'sunset' | 'forest' | 'neon';
+  customOptions?: CardCustomOptions; // 커스텀 옵션 추가
   width: number;
   height: number;
 }
 
 export default function WorkoutCardTemplate({
   workout,
-  style,
+  style = 'minimal',
+  customOptions,
   width,
   height,
 }: WorkoutCardTemplateProps) {
@@ -30,22 +35,55 @@ export default function WorkoutCardTemplate({
     (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
     0
   );
+
+  // 웨이트 트레이닝 볼륨 계산 (kg)
   const totalVolume = workout.exercises.reduce((acc, ex) => {
-    return acc + ex.sets.reduce((setAcc, set) => {
-      if (set.completed && set.weight) {
-        return setAcc + (set.weight * set.reps);
-      }
-      return setAcc;
-    }, 0);
+    const exerciseType = exerciseDatabase.find(e => e.id === ex.exerciseTypeId);
+    if (exerciseType?.category !== 'cardio') {
+      return acc + ex.sets.reduce((setAcc, set) => {
+        if (set.completed && set.weight) {
+          return setAcc + (set.weight * set.reps);
+        }
+        return setAcc;
+      }, 0);
+    }
+    return acc;
   }, 0);
 
+  // 유산소 운동 통계 계산
+  const cardioStats = workout.exercises.reduce((acc, ex) => {
+    const exerciseType = exerciseDatabase.find(e => e.id === ex.exerciseTypeId);
+    if (exerciseType?.category === 'cardio') {
+      ex.sets.forEach(set => {
+        if (set.completed) {
+          if (set.distance) acc.totalDistance += set.distance;
+          if (set.duration) acc.totalDuration += set.duration;
+        }
+      });
+    }
+    return acc;
+  }, { totalDistance: 0, totalDuration: 0 });
+
   const getStyleConfig = () => {
+    // 커스텀 옵션이 있으면 우선 사용
+    if (customOptions) {
+      return {
+        gradient: customOptions.gradientColors || [customOptions.backgroundColor || '#FFFFFF', customOptions.backgroundColor || '#FFFFFF'],
+        textColor: customOptions.primaryTextColor,
+        subTextColor: customOptions.secondaryTextColor,
+        backgroundType: customOptions.backgroundType,
+        backgroundColor: customOptions.backgroundColor,
+        backgroundImage: customOptions.backgroundImage,
+      };
+    }
+
+    // 프리셋 스타일 사용
     switch (style) {
       case 'gradient':
         return {
-          gradient: ['#667eea', '#764ba2'],
+          gradient: gradientColors, // 브랜드 그라데이션 사용
           textColor: 'white',
-          subTextColor: 'rgba(255, 255, 255, 0.8)',
+          subTextColor: 'rgba(255, 255, 255, 0.9)',
         };
       case 'dark':
         return {
@@ -55,16 +93,40 @@ export default function WorkoutCardTemplate({
         };
       case 'colorful':
         return {
-          gradient: ['#f093fb', '#f5576c'],
+          gradient: ['#FF6F8D', '#FFB871'], // 브랜드 핑크에서 밝은 오렌지로
+          textColor: 'white',
+          subTextColor: 'rgba(255, 255, 255, 0.9)',
+        };
+      case 'ocean':
+        return {
+          gradient: ['#2E3192', '#1BFFFF'], // 깊은 바다색에서 밝은 청록색으로
+          textColor: 'white',
+          subTextColor: 'rgba(255, 255, 255, 0.85)',
+        };
+      case 'sunset':
+        return {
+          gradient: ['#FF512F', '#F09819'], // 붉은 주황에서 황금색으로
+          textColor: 'white',
+          subTextColor: 'rgba(255, 255, 255, 0.9)',
+        };
+      case 'forest':
+        return {
+          gradient: ['#134E5E', '#71B280'], // 짙은 청록에서 밝은 초록으로
+          textColor: 'white',
+          subTextColor: 'rgba(255, 255, 255, 0.85)',
+        };
+      case 'neon':
+        return {
+          gradient: ['#B721FF', '#21D4FD'], // 보라색에서 하늘색으로
           textColor: 'white',
           subTextColor: 'rgba(255, 255, 255, 0.9)',
         };
       case 'minimal':
       default:
         return {
-          gradient: ['#FFFFFF', '#F5F5F5'],
-          textColor: '#1a1a1a',
-          subTextColor: '#666666',
+          gradient: ['#FFFFFF', '#FFF1E4'], // 흰색에서 브랜드 서브 배경색으로
+          textColor: '#1C1C1E', // 브랜드 텍스트 컬러
+          subTextColor: '#B5B5B8', // 브랜드 서브 텍스트 컬러
         };
     }
   };
@@ -72,93 +134,296 @@ export default function WorkoutCardTemplate({
   const config = getStyleConfig();
   const date = new Date(workout.date);
 
+  // 폰트 크기 계산
+  const getFontSizeMultiplier = () => {
+    if (!customOptions) return 1;
+    switch (customOptions.fontSize) {
+      case 'small': return 0.85;
+      case 'large': return 1.15;
+      default: return 1;
+    }
+  };
+
+  const fontMultiplier = getFontSizeMultiplier();
+
+  // 카드 컨테이너 스타일 (커스텀 옵션 적용)
+  const containerStyle = {
+    ...styles.container,
+    width,
+    height,
+    borderRadius: customOptions?.borderRadius || 0,
+    ...(customOptions?.shadowEnabled && {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 10,
+    }),
+    ...(customOptions?.borderWidth && {
+      borderWidth: customOptions.borderWidth,
+      borderColor: customOptions.borderColor || '#DDD',
+    }),
+  };
+
   return (
     <LinearGradient
       colors={config.gradient}
-      style={[styles.container, { width, height }]}
+      style={containerStyle}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
       {/* 헤더 */}
       <View style={styles.header}>
-        <Text style={[styles.dateText, { color: config.subTextColor }]}>
-          {date.toLocaleDateString('ko-KR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </Text>
-        <Text style={[styles.title, { color: config.textColor }]}>오운완 🔥</Text>
-      </View>
-
-      {/* 메인 통계 */}
-      <View style={styles.mainStats}>
-        <View style={styles.bigStat}>
-          <Ionicons name="time-outline" size={32} color={config.textColor} />
-          <Text style={[styles.bigStatValue, { color: config.textColor }]}>
-            {formatDuration(workout.totalDuration)}
+        {/* 날짜 표시 (커스텀 옵션에 따라) */}
+        {(!customOptions || customOptions.showDate) && (
+          <Text style={[
+            styles.dateText,
+            {
+              color: config.subTextColor,
+              fontSize: styles.dateText.fontSize * fontMultiplier
+            }
+          ]}>
+            {date.toLocaleDateString('ko-KR', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
           </Text>
-          <Text style={[styles.bigStatLabel, { color: config.subTextColor }]}>
-            운동 시간
-          </Text>
-        </View>
-
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: config.textColor }]}>
-              {totalVolume.toLocaleString()}kg
-            </Text>
-            <Text style={[styles.statLabel, { color: config.subTextColor }]}>
-              총 볼륨
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: config.textColor }]}>
-              {completedSets}/{totalSets}
-            </Text>
-            <Text style={[styles.statLabel, { color: config.subTextColor }]}>
-              완료 세트
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 운동 목록 */}
-      <View style={styles.exerciseList}>
-        <Text style={[styles.exerciseTitle, { color: config.textColor }]}>
-          오늘의 운동
+        )}
+        {/* 제목 (커스텀 또는 기본값) */}
+        <Text style={[
+          styles.title,
+          {
+            color: config.textColor,
+            fontSize: styles.title.fontSize * fontMultiplier
+          }
+        ]}>
+          {customOptions?.title || '오운완 🔥'}
         </Text>
-        {workout.exercises.slice(0, 5).map((exercise, index) => {
-          const exerciseType = exerciseDatabase.find(e => e.id === exercise.exerciseTypeId);
-          const completedSets = exercise.sets.filter(s => s.completed);
-          const maxWeight = Math.max(...completedSets.map(s => s.weight || 0));
-
-          return (
-            <View key={index} style={styles.exerciseItem}>
-              <Text style={[styles.exerciseName, { color: config.textColor }]}>
-                {exerciseType?.nameKo || exercise.exerciseTypeId}
-              </Text>
-              <Text style={[styles.exerciseDetail, { color: config.subTextColor }]}>
-                {completedSets.length}세트 • 최고 {maxWeight}kg
-              </Text>
-            </View>
-          );
-        })}
-        {workout.exercises.length > 5 && (
-          <Text style={[styles.moreExercises, { color: config.subTextColor }]}>
-            +{workout.exercises.length - 5}개 더...
+        {/* 부제목 (있는 경우) */}
+        {customOptions?.subtitle && (
+          <Text style={[
+            styles.subtitle,
+            {
+              color: config.subTextColor,
+              fontSize: 16 * fontMultiplier
+            }
+          ]}>
+            {customOptions.subtitle}
           </Text>
         )}
       </View>
 
+      {/* 메인 통계 */}
+      <View style={styles.mainStats}>
+        {/* 운동 시간 (커스텀 옵션에 따라) */}
+        {(!customOptions || customOptions.showStats.duration) && (
+          <View style={styles.bigStat}>
+            <Ionicons name="time-outline" size={32 * fontMultiplier} color={config.textColor} />
+            <Text style={[
+              styles.bigStatValue,
+              {
+                color: config.textColor,
+                fontSize: styles.bigStatValue.fontSize * fontMultiplier
+              }
+            ]}>
+              {formatDuration(workout.totalDuration)}
+            </Text>
+            <Text style={[
+              styles.bigStatLabel,
+              {
+                color: config.subTextColor,
+                fontSize: styles.bigStatLabel.fontSize * fontMultiplier
+              }
+            ]}>
+              운동 시간
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.statsGrid}>
+          {/* 웨이트 트레이닝 볼륨 (커스텀 옵션과 데이터에 따라) */}
+          {totalVolume > 0 && (!customOptions || customOptions.showStats.volume) && (
+            <View style={styles.statItem}>
+              <Text style={[
+                styles.statValue,
+                {
+                  color: config.textColor,
+                  fontSize: styles.statValue.fontSize * fontMultiplier
+                }
+              ]}>
+                {totalVolume.toLocaleString()}kg
+              </Text>
+              <Text style={[
+                styles.statLabel,
+                {
+                  color: config.subTextColor,
+                  fontSize: styles.statLabel.fontSize * fontMultiplier
+                }
+              ]}>
+                총 볼륨
+              </Text>
+            </View>
+          )}
+
+          {/* 유산소 운동 거리 (커스텀 옵션과 데이터에 따라) */}
+          {cardioStats.totalDistance > 0 && (!customOptions || customOptions.showStats.distance) && (
+            <View style={styles.statItem}>
+              <Text style={[
+                styles.statValue,
+                {
+                  color: config.textColor,
+                  fontSize: styles.statValue.fontSize * fontMultiplier
+                }
+              ]}>
+                {cardioStats.totalDistance.toFixed(1)}km
+              </Text>
+              <Text style={[
+                styles.statLabel,
+                {
+                  color: config.subTextColor,
+                  fontSize: styles.statLabel.fontSize * fontMultiplier
+                }
+              ]}>
+                총 거리
+              </Text>
+            </View>
+          )}
+
+          {/* 완료 세트 (커스텀 옵션에 따라) */}
+          {(!customOptions || customOptions.showStats.sets) && (
+            <View style={styles.statItem}>
+              <Text style={[
+                styles.statValue,
+                {
+                  color: config.textColor,
+                  fontSize: styles.statValue.fontSize * fontMultiplier
+                }
+              ]}>
+                {completedSets}/{totalSets}
+              </Text>
+              <Text style={[
+                styles.statLabel,
+                {
+                  color: config.subTextColor,
+                  fontSize: styles.statLabel.fontSize * fontMultiplier
+                }
+              ]}>
+                완료 세트
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* 운동 목록 (커스텀 옵션에 따라) */}
+      {(!customOptions || customOptions.showExerciseList) && (
+        <View style={styles.exerciseList}>
+          <Text style={[
+            styles.exerciseTitle,
+            {
+              color: config.textColor,
+              fontSize: styles.exerciseTitle.fontSize * fontMultiplier
+            }
+          ]}>
+            오늘의 운동
+          </Text>
+          {workout.exercises
+            .slice(0, customOptions?.maxExercisesToShow || 5)
+            .map((exercise, index) => {
+          const exerciseType = exerciseDatabase.find(e => e.id === exercise.exerciseTypeId);
+          const completedSets = exercise.sets.filter(s => s.completed);
+
+          // 운동 타입에 따른 상세 정보 표시
+          let detailText = `${completedSets.length}세트`;
+          if (exerciseType?.unit === 'score') {
+            // 점수 기반 운동 (배드민턴, 테니스 등)
+            const totalScore = completedSets.reduce((acc, s) => acc + (s.score || 0), 0);
+            detailText += ` • 총 ${totalScore}점`;
+          } else if (exerciseType?.unit === 'minutes') {
+            // 시간 기반 운동 (요가, 스트레칭 등)
+            const totalMinutes = completedSets.reduce((acc, s) => acc + (s.minutes || 0), 0);
+            detailText += ` • ${totalMinutes}분`;
+          } else if (exerciseType?.category === 'cardio') {
+            if (exerciseType.unit === 'km') {
+              const totalDistance = completedSets.reduce((acc, s) => acc + (s.distance || 0), 0);
+              detailText += ` • ${totalDistance.toFixed(1)}km`;
+            } else if (exerciseType.unit === 'level') {
+              const maxLevel = Math.max(...completedSets.map(s => s.level || 0));
+              detailText += ` • 레벨 ${maxLevel}`;
+            }
+          } else {
+            const maxWeight = Math.max(...completedSets.map(s => s.weight || 0));
+            if (maxWeight > 0) {
+              detailText += ` • 최고 ${maxWeight}kg`;
+            }
+          }
+
+            return (
+              <View key={index} style={styles.exerciseItem}>
+                <Text style={[
+                  styles.exerciseName,
+                  {
+                    color: config.textColor,
+                    fontSize: styles.exerciseName.fontSize * fontMultiplier
+                  }
+                ]}>
+                  {exerciseType?.nameKo || exercise.exerciseTypeId}
+                </Text>
+                <Text style={[
+                  styles.exerciseDetail,
+                  {
+                    color: config.subTextColor,
+                    fontSize: styles.exerciseDetail.fontSize * fontMultiplier
+                  }
+                ]}>
+                  {detailText}
+                </Text>
+              </View>
+            );
+          })}
+          {workout.exercises.length > (customOptions?.maxExercisesToShow || 5) && (
+            <Text style={[
+              styles.moreExercises,
+              {
+                color: config.subTextColor,
+                fontSize: styles.moreExercises.fontSize * fontMultiplier
+              }
+            ]}>
+              +{workout.exercises.length - (customOptions?.maxExercisesToShow || 5)}개 더...
+            </Text>
+          )}
+        </View>
+      )}
+
       {/* 푸터 */}
       <View style={styles.footer}>
-        <View style={styles.logo}>
-          <Ionicons name="fitness" size={24} color={config.textColor} />
-          <Text style={[styles.appName, { color: config.textColor }]}>ShareGym</Text>
-        </View>
-        <Text style={[styles.hashtags, { color: config.subTextColor }]}>
-          #오운완 #헬스타그램 #운동기록
+        {/* 로고 (커스텀 옵션에 따라) */}
+        {(!customOptions || customOptions.showLogo) && (
+          <View style={styles.logo}>
+            <Ionicons name="fitness" size={24 * fontMultiplier} color={config.textColor} />
+            <Text style={[
+              styles.appName,
+              {
+                color: config.textColor,
+                fontSize: styles.appName.fontSize * fontMultiplier
+              }
+            ]}>
+              쉐어핏
+            </Text>
+          </View>
+        )}
+        {/* 해시태그 (커스텀 또는 기본값) */}
+        <Text style={[
+          styles.hashtags,
+          {
+            color: config.subTextColor,
+            fontSize: styles.hashtags.fontSize * fontMultiplier
+          }
+        ]}>
+          {customOptions?.hashtags?.length
+            ? customOptions.hashtags.map(tag => `#${tag}`).join(' ')
+            : '#오운완 #헬스타그램 #운동기록'}
         </Text>
       </View>
     </LinearGradient>
@@ -167,35 +432,40 @@ export default function WorkoutCardTemplate({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 30,
+    padding: 25, // 패딩 줄임
     justifyContent: 'space-between',
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 15, // 마진 줄임
   },
   dateText: {
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: 13, // 폰트 크기 줄임
+    marginBottom: 6,
   },
   title: {
-    fontSize: 36,
+    fontSize: 32, // 폰트 크기 줄임
     fontWeight: 'bold',
   },
+  subtitle: {
+    fontSize: 16,
+    marginTop: 4,
+    opacity: 0.8,
+  },
   mainStats: {
-    marginVertical: 30,
+    marginVertical: 20, // 마진 줄임
   },
   bigStat: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20, // 마진 줄임
   },
   bigStatValue: {
-    fontSize: 48,
+    fontSize: 42, // 폰트 크기 줄임
     fontWeight: 'bold',
-    marginTop: 10,
+    marginTop: 8,
   },
   bigStatLabel: {
-    fontSize: 16,
-    marginTop: 5,
+    fontSize: 14, // 폰트 크기 줄임
+    marginTop: 4,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -205,41 +475,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 20, // 폰트 크기 줄임
     fontWeight: '600',
   },
   statLabel: {
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 12, // 폰트 크기 줄임
+    marginTop: 3,
   },
   exerciseList: {
     flex: 1,
-    marginVertical: 20,
+    marginVertical: 15, // 마진 줄임
+    maxHeight: 240, // 최대 높이 제한 추가
   },
   exerciseTitle: {
-    fontSize: 18,
+    fontSize: 16, // 폰트 크기 줄임
     fontWeight: '600',
-    marginBottom: 15,
-  },
-  exerciseItem: {
     marginBottom: 12,
   },
+  exerciseItem: {
+    marginBottom: 10, // 마진 줄임
+  },
   exerciseName: {
-    fontSize: 16,
+    fontSize: 14, // 폰트 크기 줄임
     fontWeight: '500',
   },
   exerciseDetail: {
-    fontSize: 14,
+    fontSize: 12, // 폰트 크기 줄임
     marginTop: 2,
   },
   moreExercises: {
-    fontSize: 14,
+    fontSize: 12, // 폰트 크기 줄임
     fontStyle: 'italic',
-    marginTop: 8,
+    marginTop: 6,
   },
   footer: {
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 15, // 패딩 줄임
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
@@ -247,13 +518,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   appName: {
-    fontSize: 20,
+    fontSize: 18, // 폰트 크기 줄임
     fontWeight: 'bold',
   },
   hashtags: {
-    fontSize: 12,
+    fontSize: 11, // 폰트 크기 줄임
   },
 });

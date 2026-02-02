@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -7,12 +7,15 @@ import {
   View,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
+import { Colors, gradientColors } from '@/constants/Colors';
 import { router } from 'expo-router';
 import useAuthStore from '@/stores/authStore';
 import useFeedStore from '@/stores/feedStore';
@@ -22,6 +25,7 @@ import FeedCard from '@/components/feed/FeedCard';
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets(); // Safe area insets 추가
   const { user } = useAuthStore();
   const { feedItems, isLoading, isRefreshing, fetchFeed, refreshFeed, loadMore } = useFeedStore();
   const { lastWorkout } = useWorkoutStore();
@@ -31,7 +35,8 @@ export default function HomeScreen() {
     fetchFeed();
   }, []);
 
-  const handleFeedTypeChange = (type: 'all' | 'following') => {
+  // 메모이제이션된 콜백 함수들
+  const handleFeedTypeChange = useCallback((type: 'all' | 'following') => {
     setFeedType(type);
     if (type === 'following' && user) {
       // TODO: Implement following feed
@@ -39,14 +44,32 @@ export default function HomeScreen() {
     } else {
       fetchFeed();
     }
-  };
+  }, [user, fetchFeed]);
 
-  const renderHeader = () => (
+  // FlatList 최적화를 위한 keyExtractor
+  const keyExtractor = useCallback((item) => item.id, []);
+
+  // FlatList 최적화를 위한 getItemLayout (고정 높이인 경우)
+  const getItemLayout = useCallback((data, index) => ({
+    length: 450, // 예상되는 아이템 높이
+    offset: 450 * index,
+    index,
+  }), []);
+
+  // renderItem 메모이제이션
+  const renderItem = useCallback(({ item }) => (
+    <FeedCard feedItem={item} currentUserId={user?.id} />
+  ), [user?.id]);
+
+  const renderHeader = useMemo(() => () => (
     <>
-      {/* 헤더 */}
-      <ThemedView style={styles.header}>
+      {/* 헤더 - Safe area top inset 적용 (과도한 padding 제거) */}
+      <ThemedView style={[styles.header, {
+        paddingTop: insets.top,
+        borderBottomColor: colorScheme === 'dark' ? '#333' : '#F2F2F4'
+      }]}>
         <View>
-          <ThemedText type="title">ShareGym</ThemedText>
+          <ThemedText type="title">쉐어핏</ThemedText>
           <ThemedText type="subtitle">
             {user ? `안녕하세요, ${user.username}님!` : '오늘도 화이팅!'}
           </ThemedText>
@@ -56,20 +79,27 @@ export default function HomeScreen() {
         </Pressable>
       </ThemedView>
 
-      {/* 빠른 시작 카드 */}
+      {/* 빠른 시작 카드 - 그라데이션 적용 */}
       {lastWorkout && (
         <Pressable
-          style={[styles.quickStartCard, { backgroundColor: colors.tint }]}
+          style={styles.quickStartWrapper}
           onPress={() => router.push('/(tabs)/workout')}
         >
-          <Ionicons name="flash" size={24} color="white" />
-          <View style={styles.quickStartContent}>
-            <ThemedText style={styles.quickStartTitle}>운동 시작하기</ThemedText>
-            <ThemedText style={styles.quickStartSubtitle}>
-              최근: {lastWorkout.exercises.length}개 운동
-            </ThemedText>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="white" />
+          <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.quickStartCard}
+          >
+            <Ionicons name="flash" size={24} color="white" />
+            <View style={styles.quickStartContent}>
+              <ThemedText style={styles.quickStartTitle}>운동 시작하기</ThemedText>
+              <ThemedText style={styles.quickStartSubtitle}>
+                최근: {lastWorkout.exercises.length}개 운동
+              </ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="white" />
+          </LinearGradient>
         </Pressable>
       )}
 
@@ -78,14 +108,15 @@ export default function HomeScreen() {
         <Pressable
           style={[
             styles.feedTypeButton,
-            feedType === 'all' && { backgroundColor: colors.tint },
+            { backgroundColor: feedType === 'all' ? colors.tint :
+              (colorScheme === 'dark' ? '#2a2a2a' : '#FFF1E4') },
           ]}
           onPress={() => handleFeedTypeChange('all')}
         >
           <ThemedText
             style={[
               styles.feedTypeText,
-              feedType === 'all' && { color: 'white' },
+              { color: feedType === 'all' ? 'white' : colors.text },
             ]}
           >
             전체
@@ -94,14 +125,15 @@ export default function HomeScreen() {
         <Pressable
           style={[
             styles.feedTypeButton,
-            feedType === 'following' && { backgroundColor: colors.tint },
+            { backgroundColor: feedType === 'following' ? colors.tint :
+              (colorScheme === 'dark' ? '#2a2a2a' : '#FFF1E4') },
           ]}
           onPress={() => handleFeedTypeChange('following')}
         >
           <ThemedText
             style={[
               styles.feedTypeText,
-              feedType === 'following' && { color: 'white' },
+              { color: feedType === 'following' ? 'white' : colors.text },
             ]}
           >
             팔로잉
@@ -109,7 +141,7 @@ export default function HomeScreen() {
         </Pressable>
       </View>
     </>
-  );
+  ), [insets.top, user, lastWorkout, colors, feedType, handleFeedTypeChange]);
 
   if (!user) {
     return (
@@ -121,10 +153,17 @@ export default function HomeScreen() {
             로그인하여 친구들의 운동을 확인하세요
           </ThemedText>
           <Pressable
-            style={[styles.loginButton, { backgroundColor: colors.tint }]}
+            style={styles.loginButtonWrapper}
             onPress={() => router.push('/(auth)/login')}
           >
-            <ThemedText style={styles.loginButtonText}>로그인</ThemedText>
+            <LinearGradient
+              colors={gradientColors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.loginButton}
+            >
+              <ThemedText style={styles.loginButtonText}>로그인</ThemedText>
+            </LinearGradient>
           </Pressable>
         </View>
       </ThemedView>
@@ -135,9 +174,14 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <FlatList
         data={feedItems}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <FeedCard feedItem={item} currentUserId={user?.id} />}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
         ListHeaderComponent={renderHeader}
+        removeClippedSubviews={true} // 화면 밖의 아이템 언마운트
+        maxToRenderPerBatch={5} // 한 번에 렌더링할 아이템 수
+        updateCellsBatchingPeriod={50} // 배치 업데이트 주기
+        windowSize={10} // 화면 크기의 몇 배를 렌더링할지
+        initialNumToRender={5} // 초기 렌더링 아이템 수
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             {isLoading ? (
@@ -165,6 +209,8 @@ export default function HomeScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
+        // 하단 탭바 공간 확보를 위한 padding 추가
+        contentInsetAdjustmentBehavior="automatic"
       />
     </ThemedView>
   );
@@ -178,17 +224,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    paddingTop: 15, // 기본 paddingTop 설정, insets.top이 추가됨
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    // borderBottomColor는 동적으로 적용됨
+  },
+  quickStartWrapper: {
+    margin: 15,
+    borderRadius: 12,
+    overflow: 'hidden', // 그라데이션이 border radius 내에 있도록
   },
   quickStartCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 15,
     padding: 20,
-    borderRadius: 12,
     gap: 12,
   },
   quickStartContent: {
@@ -200,7 +250,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   quickStartSubtitle: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 14,
     marginTop: 2,
   },
@@ -214,7 +264,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    // backgroundColor는 동적으로 적용됨
   },
   feedTypeText: {
     fontSize: 14,
@@ -233,10 +283,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     textAlign: 'center',
   },
+  loginButtonWrapper: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
   loginButton: {
     paddingHorizontal: 32,
     paddingVertical: 12,
-    borderRadius: 8,
   },
   loginButtonText: {
     color: 'white',

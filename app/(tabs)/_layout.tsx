@@ -16,12 +16,19 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
         tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
+        // tabBarBackground를 함수로 감싸서 props를 올바르게 전달
+        tabBarBackground: () => <TabBarBackground />,
+        // iOS에서 absolute position 제거하여 콘텐츠와 겹치지 않도록 수정
         tabBarStyle: Platform.select({
           ios: {
-            position: 'absolute',
+            // position: 'absolute' 제거 - 콘텐츠 겹침 방지
+            backgroundColor: 'transparent',
+            borderTopWidth: 0,
+            elevation: 0,
           },
-          default: {},
+          default: {
+            backgroundColor: Colors[colorScheme ?? 'light'].background,
+          },
         }),
       }}>
       <Tabs.Screen

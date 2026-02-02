@@ -120,7 +120,7 @@ export default function GroupDetailScreen() {
     if (!currentGroup) return;
 
     await Share.share({
-      message: `ShareGym 그룹 초대\n\n"${currentGroup.name}" 그룹에 초대합니다!\n\n초대 코드: ${currentGroup.inviteCode}\n\n앱에서 초대 코드를 입력하여 참여하세요!`,
+      message: `쉐어핏 그룹 초대\n\n"${currentGroup.name}" 그룹에 초대합니다!\n\n초대 코드: ${currentGroup.inviteCode}\n\n앱에서 초대 코드를 입력하여 참여하세요!`,
     });
   };
 

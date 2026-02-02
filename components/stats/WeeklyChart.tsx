@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
-import { VictoryBar, VictoryChart, VictoryAxis, VictoryTheme, VictoryLabel } from 'victory-native';
+import { VictoryBar, VictoryChart, VictoryAxis, VictoryLabel } from 'victory-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 
@@ -24,26 +24,29 @@ export default function WeeklyChart({ data, title, unit = '' }: WeeklyChartProps
   }));
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {
+      backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white',
+      shadowOpacity: colorScheme === 'dark' ? 0 : 0.1,
+    }]}>
       <ThemedText style={styles.title}>{title}</ThemedText>
       <VictoryChart
         width={screenWidth - 40}
         height={200}
         padding={{ left: 50, right: 50, top: 20, bottom: 50 }}
-        theme={VictoryTheme.material}
+        domainPadding={{ x: 20 }}
       >
         <VictoryAxis
           dependentAxis
           style={{
-            axis: { stroke: '#ccc' },
-            grid: { stroke: '#f0f0f0' },
+            axis: { stroke: colorScheme === 'dark' ? '#555' : '#ccc' },
+            grid: { stroke: colorScheme === 'dark' ? '#333' : '#f0f0f0', strokeDasharray: '3,3' },
             tickLabels: { fontSize: 12, fill: colors.text },
           }}
         />
         <VictoryAxis
           style={{
-            axis: { stroke: '#ccc' },
-            tickLabels: { fontSize: 12, fill: colors.text },
+            axis: { stroke: colorScheme === 'dark' ? '#555' : '#ccc' },
+            tickLabels: { fontSize: 12, fill: colors.text, angle: 0 },
           }}
         />
         <VictoryBar
@@ -51,6 +54,8 @@ export default function WeeklyChart({ data, title, unit = '' }: WeeklyChartProps
           style={{
             data: { fill: colors.tint },
           }}
+          barRatio={0.8}
+          cornerRadius={{ top: 4 }}
           labelComponent={
             <VictoryLabel
               dy={-10}
@@ -65,13 +70,13 @@ export default function WeeklyChart({ data, title, unit = '' }: WeeklyChartProps
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
+    // backgroundColor는 동적으로 적용됨 (다크모드 대응)
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    // shadowOpacity는 동적으로 적용됨 (다크모드 대응)
     shadowRadius: 4,
     elevation: 2,
   },

@@ -4,10 +4,10 @@ import {
   ScrollView,
   Pressable,
   View,
-  SafeAreaView,
   TextInput,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { router } from 'expo-router';
@@ -19,8 +19,11 @@ import { RoutineExercise } from '@/types';
 import { exerciseDatabase } from '@/data/exercises';
 
 export default function CreateRoutineScreen() {
+  // 테마 및 색상 설정
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  // Safe Area Insets - 상단/하단 안전 영역 패딩 설정
+  const insets = useSafeAreaInsets();
   const { createRoutine } = useRoutineStore();
 
   const [routineName, setRoutineName] = useState('');
@@ -81,9 +84,9 @@ export default function CreateRoutineScreen() {
   }, [exercises]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ThemedView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {/* 헤더 */}
-      <ThemedView style={styles.header}>
+      <ThemedView style={[styles.header, { paddingTop: 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
@@ -245,7 +248,7 @@ export default function CreateRoutineScreen() {
           )}
         </ThemedView>
       </ScrollView>
-    </SafeAreaView>
+    </ThemedView>
   );
 }
 

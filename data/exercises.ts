@@ -441,7 +441,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['하체'],
     equipment: '트레드밀',
-    icon: '🏃'
+    icon: '🏃',
+    unit: 'speed-incline' // 속도 + 인클라인 기반 유산소
   },
   {
     id: 'elliptical',
@@ -450,7 +451,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['하체'],
     equipment: '일립티컬',
-    icon: '🏃'
+    icon: '🏃',
+    unit: 'level' // 레벨 기반 유산소
   },
   {
     id: 'rowing-machine',
@@ -459,7 +461,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['등', '하체'],
     equipment: '로잉머신',
-    icon: '🚣'
+    icon: '🚣',
+    unit: 'km' // 거리 기반 유산소
   },
   {
     id: 'stationary-bike',
@@ -468,7 +471,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['하체'],
     equipment: '싸이클',
-    icon: '🚴'
+    icon: '🚴',
+    unit: 'speed' // 속도 기반 유산소
   },
   {
     id: 'stair-climber',
@@ -477,7 +481,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['하체'],
     equipment: '스테어 클라이머',
-    icon: '🏃'
+    icon: '🏃',
+    unit: 'level' // 레벨 기반 유산소
   },
   {
     id: 'stairmaster',
@@ -486,7 +491,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['하체', '둔근'],
     equipment: '스테어마스터',
-    icon: '🪜'
+    icon: '🪜',
+    unit: 'level' // 레벨 기반 유산소
   },
   {
     id: 'assault-bike',
@@ -495,7 +501,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['전신'],
     equipment: '어썰트 바이크',
-    icon: '🚴'
+    icon: '🚴',
+    unit: 'speed' // 속도 기반 유산소
   },
   {
     id: 'jump-rope',
@@ -504,7 +511,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['하체', '전신'],
     equipment: '줄넘기',
-    icon: '🪢'
+    icon: '🪢',
+    unit: 'reps' // 횟수 기반 유산소
   },
   {
     id: 'burpees',
@@ -512,7 +520,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '버피',
     category: 'cardio',
     muscleGroups: ['전신'],
-    icon: '🤸'
+    icon: '🤸',
+    unit: 'reps' // 횟수 기반 유산소
   },
   {
     id: 'mountain-climbers',
@@ -520,7 +529,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '마운틴 클라이머',
     category: 'cardio',
     muscleGroups: ['전신', '복근'],
-    icon: '🧗'
+    icon: '🧗',
+    unit: 'reps' // 횟수 기반 유산소
   },
   {
     id: 'high-knees',
@@ -528,7 +538,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '하이 니즈',
     category: 'cardio',
     muscleGroups: ['하체'],
-    icon: '🏃'
+    icon: '🏃',
+    unit: 'reps' // 횟수 기반 유산소
   },
   {
     id: 'jumping-jacks',
@@ -536,7 +547,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '점핑잭',
     category: 'cardio',
     muscleGroups: ['전신'],
-    icon: '🤸'
+    icon: '🤸',
+    unit: 'reps' // 횟수 기반 유산소
   },
   {
     id: 'box-jumps',
@@ -545,7 +557,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['하체'],
     equipment: '박스',
-    icon: '📦'
+    icon: '📦',
+    unit: 'reps' // 횟수 기반 유산소
   },
   {
     id: 'treadmill-running',
@@ -554,7 +567,8 @@ export const exerciseDatabase: ExerciseType[] = [
     category: 'cardio',
     muscleGroups: ['하체', '전신'],
     equipment: '런닝머신',
-    icon: '🏃'
+    icon: '🏃',
+    unit: 'speed-incline' // 속도 + 인클라인 기반 유산소
   },
 
   // 스포츠
@@ -564,7 +578,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '배드민턴',
     category: 'sports',
     muscleGroups: ['전신'],
-    icon: '🏸'
+    icon: '🏸',
+    unit: 'score' // 점수 기반 스포츠
   },
   {
     id: 'swimming',
@@ -572,7 +587,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '수영',
     category: 'sports',
     muscleGroups: ['전신'],
-    icon: '🏊'
+    icon: '🏊',
+    unit: 'minutes' // 시간 기반 스포츠
   },
   {
     id: 'basketball',
@@ -580,7 +596,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '농구',
     category: 'sports',
     muscleGroups: ['전신'],
-    icon: '🏀'
+    icon: '🏀',
+    unit: 'minutes' // 시간 기반 스포츠
   },
   {
     id: 'soccer',
@@ -588,7 +605,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '축구',
     category: 'sports',
     muscleGroups: ['하체', '전신'],
-    icon: '⚽'
+    icon: '⚽',
+    unit: 'minutes' // 시간 기반 스포츠
   },
   {
     id: 'tennis',
@@ -596,7 +614,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '테니스',
     category: 'sports',
     muscleGroups: ['전신'],
-    icon: '🎾'
+    icon: '🎾',
+    unit: 'score' // 점수 기반 스포츠
   },
   {
     id: 'volleyball',
@@ -604,7 +623,53 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '배구',
     category: 'sports',
     muscleGroups: ['전신'],
-    icon: '🏐'
+    icon: '🏐',
+    unit: 'score' // 점수 기반 스포츠
+  },
+  {
+    id: 'table-tennis',
+    name: 'Table Tennis',
+    nameKo: '탁구',
+    category: 'sports',
+    muscleGroups: ['전신'],
+    icon: '🏓',
+    unit: 'score' // 점수 기반 스포츠
+  },
+  {
+    id: 'squash',
+    name: 'Squash',
+    nameKo: '스쿼시',
+    category: 'sports',
+    muscleGroups: ['전신'],
+    icon: '🎾',
+    unit: 'score' // 점수 기반 스포츠
+  },
+  {
+    id: 'golf',
+    name: 'Golf',
+    nameKo: '골프',
+    category: 'sports',
+    muscleGroups: ['상체', '코어'],
+    icon: '⛳',
+    unit: 'score' // 점수 기반 스포츠
+  },
+  {
+    id: 'bowling',
+    name: 'Bowling',
+    nameKo: '볼링',
+    category: 'sports',
+    muscleGroups: ['팔', '어깨'],
+    icon: '🎳',
+    unit: 'score' // 점수 기반 스포츠
+  },
+  {
+    id: 'baseball',
+    name: 'Baseball',
+    nameKo: '야구',
+    category: 'sports',
+    muscleGroups: ['전신'],
+    icon: '⚾',
+    unit: 'minutes' // 시간 기반 스포츠
   },
 
   // 야외 운동
@@ -614,7 +679,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '야외 런닝',
     category: 'outdoor',
     muscleGroups: ['하체', '전신'],
-    icon: '🏃'
+    icon: '🏃',
+    unit: 'km' // 거리 기반 야외 운동
   },
   {
     id: 'hiking',
@@ -622,7 +688,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '등산',
     category: 'outdoor',
     muscleGroups: ['하체', '전신'],
-    icon: '🥾'
+    icon: '🥾',
+    unit: 'minutes' // 시간 기반 야외 운동
   },
   {
     id: 'cycling',
@@ -630,7 +697,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '사이클링',
     category: 'outdoor',
     muscleGroups: ['하체'],
-    icon: '🚴'
+    icon: '🚴',
+    unit: 'km' // 거리 기반 야외 운동
   },
   {
     id: 'walking',
@@ -638,7 +706,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '걷기',
     category: 'outdoor',
     muscleGroups: ['하체'],
-    icon: '🚶'
+    icon: '🚶',
+    unit: 'km' // 거리 기반 야외 운동
   },
 
   // 스트레칭
@@ -648,7 +717,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '스트레칭',
     category: 'stretching',
     muscleGroups: ['전신'],
-    icon: '🧘'
+    icon: '🧘',
+    unit: 'minutes' // 시간 기반 스트레칭
   },
   {
     id: 'yoga',
@@ -656,7 +726,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '요가',
     category: 'stretching',
     muscleGroups: ['전신'],
-    icon: '🧘‍♀️'
+    icon: '🧘‍♀️',
+    unit: 'minutes' // 시간 기반 스트레칭
   },
 
   // 요가 동작들
@@ -666,7 +737,9 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '태양 경배 자세',
     category: 'yoga',
     muscleGroups: ['전신'],
-    icon: '☀️'
+    unit: 'minutes',
+    icon: '☀️',
+    unit: 'minutes' // 시간 기반 요가
   },
   {
     id: 'downward-dog',
@@ -674,7 +747,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '다운워드 독',
     category: 'yoga',
     muscleGroups: ['전신', '어깨', '등'],
-    icon: '🐕'
+    icon: '🐕',
+    unit: 'minutes' // 시간 기반 요가
   },
   {
     id: 'warrior-pose',
@@ -682,7 +756,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '전사 자세',
     category: 'yoga',
     muscleGroups: ['하체', '코어'],
-    icon: '🧘‍♀️'
+    icon: '🧘‍♀️',
+    unit: 'minutes' // 시간 기반 요가
   },
   {
     id: 'tree-pose',
@@ -690,7 +765,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '나무 자세',
     category: 'yoga',
     muscleGroups: ['하체', '코어'],
-    icon: '🌳'
+    icon: '🌳',
+    unit: 'minutes' // 시간 기반 요가
   },
   {
     id: 'child-pose',
@@ -698,7 +774,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '아이 자세',
     category: 'yoga',
     muscleGroups: ['등', '어깨'],
-    icon: '👶'
+    icon: '👶',
+    unit: 'minutes' // 시간 기반 요가
   },
   {
     id: 'cobra-pose',
@@ -706,7 +783,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '코브라 자세',
     category: 'yoga',
     muscleGroups: ['등', '복근'],
-    icon: '🐍'
+    icon: '🐍',
+    unit: 'minutes'
   },
   {
     id: 'cat-cow-pose',
@@ -714,7 +792,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '고양이-소 자세',
     category: 'yoga',
     muscleGroups: ['등', '복근'],
-    icon: '🐱'
+    icon: '🐱',
+    unit: 'minutes'
   },
   {
     id: 'bridge-pose',
@@ -722,7 +801,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '브릿지 자세',
     category: 'yoga',
     muscleGroups: ['둔근', '등', '코어'],
-    icon: '🌉'
+    icon: '🌉',
+    unit: 'minutes'
   },
   {
     id: 'pigeon-pose',
@@ -730,7 +810,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '비둘기 자세',
     category: 'yoga',
     muscleGroups: ['둔근', '하체'],
-    icon: '🕊️'
+    icon: '🕊️',
+    unit: 'minutes'
   },
   {
     id: 'mountain-pose',
@@ -738,7 +819,9 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '산 자세',
     category: 'yoga',
     muscleGroups: ['전신'],
-    icon: '⛰️'
+    unit: 'minutes',
+    icon: '⛰️',
+    unit: 'minutes'
   },
   {
     id: 'triangle-pose',
@@ -746,7 +829,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '삼각 자세',
     category: 'yoga',
     muscleGroups: ['옆구리', '하체'],
-    icon: '📐'
+    icon: '📐',
+    unit: 'minutes'
   },
   {
     id: 'seated-forward-bend',
@@ -754,7 +838,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '앉은 전굴 자세',
     category: 'yoga',
     muscleGroups: ['등', '하체'],
-    icon: '🧘'
+    icon: '🧘',
+    unit: 'minutes'
   },
   {
     id: 'shoulder-stand',
@@ -762,7 +847,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '어깨 물구나무',
     category: 'yoga',
     muscleGroups: ['어깨', '코어'],
-    icon: '🤸‍♀️'
+    icon: '🤸‍♀️',
+    unit: 'minutes'
   },
   {
     id: 'plank-pose',
@@ -770,7 +856,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '플랭크 자세',
     category: 'yoga',
     muscleGroups: ['코어', '전신'],
-    icon: '📏'
+    icon: '📏',
+    unit: 'minutes'
   },
   {
     id: 'corpse-pose',
@@ -778,6 +865,7 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '송장 자세 (사바사나)',
     category: 'yoga',
     muscleGroups: ['전신'],
+    unit: 'minutes',
     icon: '😌'
   },
   {
@@ -786,7 +874,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '낙타 자세',
     category: 'yoga',
     muscleGroups: ['등', '가슴', '복근'],
-    icon: '🐪'
+    icon: '🐪',
+    unit: 'minutes'
   },
   {
     id: 'boat-pose',
@@ -794,7 +883,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '보트 자세',
     category: 'yoga',
     muscleGroups: ['복근', '코어'],
-    icon: '⛵'
+    icon: '⛵',
+    unit: 'minutes'
   },
   {
     id: 'eagle-pose',
@@ -802,7 +892,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '독수리 자세',
     category: 'yoga',
     muscleGroups: ['하체', '어깨'],
-    icon: '🦅'
+    icon: '🦅',
+    unit: 'minutes'
   },
   {
     id: 'chair-pose',
@@ -810,7 +901,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '의자 자세',
     category: 'yoga',
     muscleGroups: ['하체', '코어'],
-    icon: '🪑'
+    icon: '🪑',
+    unit: 'minutes'
   },
   {
     id: 'fish-pose',
@@ -818,7 +910,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '물고기 자세',
     category: 'yoga',
     muscleGroups: ['가슴', '목', '등'],
-    icon: '🐟'
+    icon: '🐟',
+    unit: 'minutes'
   },
   {
     id: 'half-moon-pose',
@@ -826,7 +919,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '반달 자세',
     category: 'yoga',
     muscleGroups: ['옆구리', '하체', '코어'],
-    icon: '🌙'
+    icon: '🌙',
+    unit: 'minutes'
   },
   {
     id: 'lotus-pose',
@@ -834,7 +928,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '연꽃 자세',
     category: 'yoga',
     muscleGroups: ['둔근', '하체'],
-    icon: '🪷'
+    icon: '🪷',
+    unit: 'minutes'
   },
   {
     id: 'bow-pose',
@@ -842,7 +937,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '활 자세',
     category: 'yoga',
     muscleGroups: ['등', '가슴', '복근'],
-    icon: '🏹'
+    icon: '🏹',
+    unit: 'minutes'
   },
   {
     id: 'wheel-pose',
@@ -850,7 +946,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '휠 자세',
     category: 'yoga',
     muscleGroups: ['등', '어깨', '코어'],
-    icon: '☸️'
+    icon: '☸️',
+    unit: 'minutes'
   },
   {
     id: 'side-plank',
@@ -858,7 +955,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '사이드 플랭크',
     category: 'yoga',
     muscleGroups: ['옆구리', '코어'],
-    icon: '📐'
+    icon: '📐',
+    unit: 'minutes'
   },
   {
     id: 'happy-baby-pose',
@@ -866,7 +964,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '해피 베이비 자세',
     category: 'yoga',
     muscleGroups: ['둔근', '등'],
-    icon: '👶'
+    icon: '👶',
+    unit: 'minutes'
   },
   {
     id: 'extended-side-angle',
@@ -874,7 +973,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '확장 측면 각도 자세',
     category: 'yoga',
     muscleGroups: ['옆구리', '하체'],
-    icon: '📏'
+    icon: '📏',
+    unit: 'minutes'
   },
   {
     id: 'butterfly-pose',
@@ -882,7 +982,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '나비 자세',
     category: 'yoga',
     muscleGroups: ['둔근', '내전근'],
-    icon: '🦋'
+    icon: '🦋',
+    unit: 'minutes'
   },
   {
     id: 'headstand',
@@ -890,7 +991,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '머리 물구나무',
     category: 'yoga',
     muscleGroups: ['코어', '어깨', '전신'],
-    icon: '🤸'
+    icon: '🤸',
+    unit: 'minutes'
   },
   {
     id: 'crow-pose',
@@ -898,7 +1000,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '까마귀 자세',
     category: 'yoga',
     muscleGroups: ['코어', '팔', '어깨'],
-    icon: '🐦‍⬛'
+    icon: '🐦‍⬛',
+    unit: 'minutes'
   },
   {
     id: 'foam-rolling',
@@ -906,7 +1009,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '폼롤링',
     category: 'stretching',
     muscleGroups: ['전신'],
-    icon: '🎯'
+    icon: '🎯',
+    unit: 'minutes' // 시간 기반 스트레칭
   },
   {
     id: 'dynamic-stretching',
@@ -914,7 +1018,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '동적 스트레칭',
     category: 'stretching',
     muscleGroups: ['전신'],
-    icon: '🤸'
+    icon: '🤸',
+    unit: 'minutes' // 시간 기반 스트레칭
   },
   {
     id: 'static-stretching',
@@ -922,7 +1027,8 @@ export const exerciseDatabase: ExerciseType[] = [
     nameKo: '정적 스트레칭',
     category: 'stretching',
     muscleGroups: ['전신'],
-    icon: '🧘'
+    icon: '🧘',
+    unit: 'minutes' // 시간 기반 스트레칭
   }
 ];
 

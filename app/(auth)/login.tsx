@@ -4,28 +4,37 @@ import {
   View,
   TextInput,
   Pressable,
-  SafeAreaView,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
+import { Colors, gradientColors } from '@/constants/Colors';
 import useAuthStore from '@/stores/authStore';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const { signIn, isLoading } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // 테스트 계정으로 자동 입력
+  const useTestAccount = () => {
+    setEmail('test@test.com');
+    setPassword('test1234');
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -42,7 +51,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ThemedView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -50,10 +59,30 @@ export default function LoginScreen() {
         <ThemedView style={styles.content}>
           {/* 로고 */}
           <View style={styles.logoContainer}>
-            <Ionicons name="fitness" size={64} color={colors.tint} />
-            <ThemedText type="title" style={styles.title}>ShareGym</ThemedText>
+            <Image
+              source={require('@/assets/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <ThemedText type="title" style={styles.title}>쉐어핏</ThemedText>
             <ThemedText style={styles.subtitle}>운동을 함께, 성장을 함께</ThemedText>
           </View>
+
+          {/* 테스트 계정 안내 */}
+          <Pressable
+            style={[styles.testAccountBanner, { backgroundColor: colors.tint + '20' }]}
+            onPress={useTestAccount}
+          >
+            <Ionicons name="information-circle" size={20} color={colors.tint} />
+            <View style={styles.testAccountInfo}>
+              <ThemedText style={[styles.testAccountTitle, { color: colors.tint }]}>
+                테스트 계정으로 시작하기
+              </ThemedText>
+              <ThemedText style={styles.testAccountSubtitle}>
+                탭하여 test@test.com / test1234 입력
+              </ThemedText>
+            </View>
+          </Pressable>
 
           {/* 입력 필드 */}
           <View style={styles.formContainer}>
@@ -91,21 +120,24 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
-            {/* 로그인 버튼 */}
+            {/* 로그인 버튼 - 그라데이션 적용 */}
             <Pressable
-              style={[
-                styles.loginButton,
-                { backgroundColor: colors.tint },
-                isLoading && styles.disabledButton,
-              ]}
+              style={[styles.loginButtonWrapper, isLoading && styles.disabledButton]}
               onPress={handleLogin}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <ThemedText style={styles.loginButtonText}>로그인</ThemedText>
-              )}
+              <LinearGradient
+                colors={isLoading ? ['#B5B5B8', '#B5B5B8'] : gradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.loginButton}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <ThemedText style={styles.loginButtonText}>로그인</ThemedText>
+                )}
+              </LinearGradient>
             </Pressable>
 
             {/* 비밀번호 찾기 */}
@@ -147,7 +179,7 @@ export default function LoginScreen() {
           </View>
         </ThemedView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ThemedView>
   );
 }
 
@@ -167,6 +199,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 10,
+  },
   title: {
     fontSize: 32,
     marginTop: 10,
@@ -181,7 +218,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF1E4', // 브랜드 서브 배경색
     borderRadius: 12,
     paddingHorizontal: 15,
     marginBottom: 15,
@@ -192,11 +229,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 15,
   },
+  loginButtonWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
   loginButton: {
     padding: 16,
-    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 10,
   },
   disabledButton: {
     opacity: 0.6,
@@ -222,7 +262,7 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#F2F2F4', // 브랜드 색상 적용
   },
   dividerText: {
     marginHorizontal: 15,
@@ -239,7 +279,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#F2F2F4', // 브랜드 색상 적용
     gap: 10,
   },
   socialButtonText: {
@@ -253,5 +293,25 @@ const styles = StyleSheet.create({
   },
   signupLink: {
     fontWeight: '600',
+  },
+  testAccountBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 20,
+    gap: 12,
+  },
+  testAccountInfo: {
+    flex: 1,
+  },
+  testAccountTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  testAccountSubtitle: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
   },
 });

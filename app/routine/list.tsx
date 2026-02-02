@@ -4,9 +4,9 @@ import {
   ScrollView,
   Pressable,
   View,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { router } from 'expo-router';
@@ -20,6 +20,7 @@ import { exerciseDatabase } from '@/data/exercises';
 export default function RoutineListScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const { routines, toggleFavorite, deleteRoutine, duplicateRoutine } = useRoutineStore();
   const { loadFromRoutine } = useWorkoutStore();
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
@@ -61,9 +62,9 @@ export default function RoutineListScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 헤더 */}
-      <ThemedView style={styles.header}>
+      <ThemedView style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={28} color={colors.text} />
         </Pressable>
@@ -196,7 +197,7 @@ export default function RoutineListScreen() {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ThemedView>
   );
 }
 
