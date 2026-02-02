@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +25,6 @@ import FeedCard from '@/components/feed/FeedCard';
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const insets = useSafeAreaInsets(); // Safe area insets 추가
   const { user } = useAuthStore();
   const { feedItems, isLoading, isRefreshing, fetchFeed, refreshFeed, loadMore } = useFeedStore();
   const { lastWorkout } = useWorkoutStore();
@@ -63,9 +62,8 @@ export default function HomeScreen() {
 
   const renderHeader = useMemo(() => () => (
     <>
-      {/* 헤더 - Safe area top inset 적용 (과도한 padding 제거) */}
+      {/* 헤더 */}
       <ThemedView style={[styles.header, {
-        paddingTop: insets.top,
         borderBottomColor: colorScheme === 'dark' ? '#333' : '#F2F2F4'
       }]}>
         <View>
@@ -141,78 +139,88 @@ export default function HomeScreen() {
         </Pressable>
       </View>
     </>
-  ), [insets.top, user, lastWorkout, colors, feedType, handleFeedTypeChange]);
+  ), [user, lastWorkout, colors, feedType, handleFeedTypeChange, colorScheme]);
 
   if (!user) {
     return (
-      <ThemedView style={styles.container}>
-        {renderHeader()}
-        <View style={styles.loginPrompt}>
-          <Ionicons name="lock-closed-outline" size={48} color="#ccc" />
-          <ThemedText style={styles.loginPromptText}>
-            로그인하여 친구들의 운동을 확인하세요
-          </ThemedText>
-          <Pressable
-            style={styles.loginButtonWrapper}
-            onPress={() => router.push('/(auth)/login')}
-          >
-            <LinearGradient
-              colors={gradientColors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.loginButton}
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top']}
+      >
+        <ThemedView style={styles.container}>
+          {renderHeader()}
+          <View style={styles.loginPrompt}>
+            <Ionicons name="lock-closed-outline" size={48} color="#ccc" />
+            <ThemedText style={styles.loginPromptText}>
+              로그인하여 친구들의 운동을 확인하세요
+            </ThemedText>
+            <Pressable
+              style={styles.loginButtonWrapper}
+              onPress={() => router.push('/(auth)/login')}
             >
-              <ThemedText style={styles.loginButtonText}>로그인</ThemedText>
-            </LinearGradient>
-          </Pressable>
-        </View>
-      </ThemedView>
+              <LinearGradient
+                colors={gradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.loginButton}
+              >
+                <ThemedText style={styles.loginButtonText}>로그인</ThemedText>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </ThemedView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <FlatList
-        data={feedItems}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
-        removeClippedSubviews={true} // 화면 밖의 아이템 언마운트
-        maxToRenderPerBatch={5} // 한 번에 렌더링할 아이템 수
-        updateCellsBatchingPeriod={50} // 배치 업데이트 주기
-        windowSize={10} // 화면 크기의 몇 배를 렌더링할지
-        initialNumToRender={5} // 초기 렌더링 아이템 수
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            {isLoading ? (
-              <ActivityIndicator size="large" color={colors.tint} />
-            ) : (
-              <>
-                <Ionicons name="barbell-outline" size={48} color="#ccc" />
-                <ThemedText style={styles.emptyText}>
-                  아직 운동 기록이 없습니다
-                </ThemedText>
-                <ThemedText style={styles.emptySubtext}>
-                  운동을 시작하고 공유해보세요!
-                </ThemedText>
-              </>
-            )}
-          </View>
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={refreshFeed}
-            colors={[colors.tint]}
-          />
-        }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        showsVerticalScrollIndicator={false}
-        // 하단 탭바 공간 확보를 위한 padding 추가
-        contentInsetAdjustmentBehavior="automatic"
-      />
-    </ThemedView>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
+      <ThemedView style={styles.container}>
+        <FlatList
+          data={feedItems}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
+          removeClippedSubviews={true} // 화면 밖의 아이템 언마운트
+          maxToRenderPerBatch={5} // 한 번에 렌더링할 아이템 수
+          updateCellsBatchingPeriod={50} // 배치 업데이트 주기
+          windowSize={10} // 화면 크기의 몇 배를 렌더링할지
+          initialNumToRender={5} // 초기 렌더링 아이템 수
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              {isLoading ? (
+                <ActivityIndicator size="large" color={colors.tint} />
+              ) : (
+                <>
+                  <Ionicons name="barbell-outline" size={48} color="#ccc" />
+                  <ThemedText style={styles.emptyText}>
+                    아직 운동 기록이 없습니다
+                  </ThemedText>
+                  <ThemedText style={styles.emptySubtext}>
+                    운동을 시작하고 공유해보세요!
+                  </ThemedText>
+                </>
+              )}
+            </View>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refreshFeed}
+              colors={[colors.tint]}
+            />
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          showsVerticalScrollIndicator={false}
+          // 하단 탭바 공간 확보를 위한 padding 추가
+          contentInsetAdjustmentBehavior="automatic"
+        />
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 
@@ -225,8 +233,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 15,
-    paddingTop: 15, // 기본 paddingTop 설정, insets.top이 추가됨
+    paddingVertical: 15,
     borderBottomWidth: 1,
     // borderBottomColor는 동적으로 적용됨
   },

@@ -44,6 +44,7 @@ export default function SmartCheerNotification({
   const translateY = useRef(new Animated.Value(position === 'top' ? -150 : 100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
+  const progressScale = useRef(new Animated.Value(1)).current; // 프로그레스 바 애니메이션용
 
   useEffect(() => {
     // 등장 애니메이션
@@ -66,6 +67,13 @@ export default function SmartCheerNotification({
         friction: 7,
       }),
     ]).start();
+
+    // 프로그레스 바 애니메이션 (지속 시간 동안 감소)
+    Animated.timing(progressScale, {
+      toValue: 0,
+      duration: duration,
+      useNativeDriver: true,
+    }).start();
 
     // 햅틱 피드백
     if (Platform.OS === 'ios') {
@@ -224,10 +232,9 @@ export default function SmartCheerNotification({
             styles.progressBar,
             {
               backgroundColor: 'rgba(255,255,255,0.3)',
-              width: opacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              }),
+              transform: [
+                { scaleX: progressScale }, // width 대신 scaleX 사용
+              ],
             },
           ]}
         />
@@ -322,5 +329,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
+    width: '100%', // 너비는 100%로 설정하고 scaleX로 애니메이션
+    transformOrigin: 'left', // 왼쪽 기준으로 스케일 변환
   },
 });

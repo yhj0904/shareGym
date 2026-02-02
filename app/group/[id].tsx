@@ -449,7 +449,54 @@ export default function GroupDetailScreen() {
               <ThemedText style={styles.sectionTitle}>
                 멤버 ({currentGroup.memberCount})
               </ThemedText>
-              {/* 멤버 목록은 추후 구현 */}
+              <View style={styles.memberList}>
+                {currentGroup.members.map((memberId, index) => {
+                  const isAdmin = currentGroup.admins.includes(memberId);
+                  const isCreator = currentGroup.createdBy === memberId;
+                  const isCurrentUser = user?.id === memberId;
+
+                  // Mock 유저 이름 매핑
+                  const getMemberName = (id: string) => {
+                    const nameMap: { [key: string]: string } = {
+                      'test-user': '김철수',
+                      'user2': '이영희',
+                      'user3': '박민수',
+                      'user4': '최지원',
+                      'test@test.com': '홍길동',
+                      'test2@test.com': '김영희',
+                    };
+                    return nameMap[id] || `사용자${index + 1}`;
+                  };
+
+                  return (
+                    <View key={memberId} style={styles.memberItem}>
+                      <View style={styles.memberInfo}>
+                        <Ionicons name="person-circle" size={36} color="#ccc" />
+                        <View style={styles.memberDetails}>
+                          <View style={styles.memberNameRow}>
+                            <ThemedText style={styles.memberName}>
+                              {isCurrentUser ? `${getMemberName(memberId)} (나)` : getMemberName(memberId)}
+                            </ThemedText>
+                            {isCreator && (
+                              <View style={styles.badge}>
+                                <ThemedText style={styles.badgeText}>그룹장</ThemedText>
+                              </View>
+                            )}
+                            {!isCreator && isAdmin && (
+                              <View style={[styles.badge, styles.adminBadge]}>
+                                <ThemedText style={styles.badgeText}>관리자</ThemedText>
+                              </View>
+                            )}
+                          </View>
+                          <ThemedText style={styles.memberId}>
+                            운동 레벨: 중급
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
 
             <Pressable
@@ -714,6 +761,50 @@ const styles = StyleSheet.create({
   },
   memberSection: {
     marginBottom: 32,
+  },
+  memberList: {
+    marginTop: 12,
+  },
+  memberItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  memberInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  memberDetails: {
+    flex: 1,
+  },
+  memberNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  memberName: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  memberId: {
+    fontSize: 13,
+    opacity: 0.6,
+    marginTop: 2,
+  },
+  badge: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  adminBadge: {
+    backgroundColor: '#34C759',
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '600',
   },
   leaveButton: {
     padding: 16,
