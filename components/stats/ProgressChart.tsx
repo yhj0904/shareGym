@@ -11,6 +11,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
+import Svg, { Polyline, Circle } from 'react-native-svg';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
@@ -131,6 +132,9 @@ export default function ProgressChart({ workoutHistory }: ProgressChartProps) {
       minValue = Math.min(minValue, value);
     });
 
+    // NaN 방지: minValue가 Infinity면 0으로 설정
+    if (minValue === Infinity) minValue = 0;
+
     // 차트 높이 및 포인트 계산
     const chartHeight = 200;
     const chartWidth = screenWidth - 60;
@@ -141,8 +145,25 @@ export default function ProgressChart({ workoutHistory }: ProgressChartProps) {
                    unit === 'level' ? item.maxLevel || 0 :
                    item.maxWeight;
 
-      const x = (index / (progressData.length - 1)) * (chartWidth - padding * 2) + padding;
-      const y = chartHeight - ((value - minValue) / (maxValue - minValue)) * (chartHeight - padding * 2) - padding;
+      // X 좌표 계산 (데이터가 1개일 때 NaN 방지)
+      let x: number;
+      if (progressData.length === 1) {
+        x = chartWidth / 2; // 중앙에 배치
+      } else {
+        x = (index / (progressData.length - 1)) * (chartWidth - padding * 2) + padding;
+      }
+
+      // Y 좌표 계산 (모든 값이 같을 때 NaN 방지)
+      let y: number;
+      if (maxValue === minValue) {
+        y = chartHeight / 2; // 중앙에 배치
+      } else {
+        y = chartHeight - ((value - minValue) / (maxValue - minValue)) * (chartHeight - padding * 2) - padding;
+      }
+
+      // NaN 체크 및 기본값 설정
+      if (isNaN(x)) x = padding;
+      if (isNaN(y)) y = chartHeight / 2;
 
       return { x, y, value, date: item.date };
     });
@@ -237,13 +258,13 @@ export default function ProgressChart({ workoutHistory }: ProgressChartProps) {
             ))}
 
             {/* 데이터 라인 */}
-            <svg
+            <Svg
               width={chartData.chartWidth}
               height={chartData.chartHeight}
               style={StyleSheet.absoluteFillObject}
             >
               {/* 라인 그리기 */}
-              <polyline
+              <Polyline
                 points={chartData.points.map(p => `${p.x},${p.y}`).join(' ')}
                 fill="none"
                 stroke={colors.tint}
@@ -252,7 +273,7 @@ export default function ProgressChart({ workoutHistory }: ProgressChartProps) {
 
               {/* 포인트 그리기 */}
               {chartData.points.map((point, index) => (
-                <circle
+                <Circle
                   key={index}
                   cx={point.x}
                   cy={point.y}
@@ -260,22 +281,7 @@ export default function ProgressChart({ workoutHistory }: ProgressChartProps) {
                   fill={colors.tint}
                 />
               ))}
-            </svg>
-
-            {/* 대체 차트 (SVG 미지원 시) */}
-            {chartData.points.map((point, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dataPoint,
-                  {
-                    left: point.x - 4,
-                    top: point.y - 4,
-                    backgroundColor: colors.tint,
-                  },
-                ]}
-              />
-            ))}
+            </Svg>
           </View>
 
           {/* 단위 표시 */}

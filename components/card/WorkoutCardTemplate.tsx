@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Dimensions,
   ImageBackground,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { WorkoutSession, CardCustomOptions } from '@/types';
@@ -67,13 +68,16 @@ export default function WorkoutCardTemplate({
   const getStyleConfig = () => {
     // 커스텀 옵션이 있으면 우선 사용
     if (customOptions) {
+      // 배경 이미지가 있을 때는 텍스트를 흰색으로 자동 설정
+      const isImageBg = customOptions.backgroundType === 'image' && customOptions.backgroundImage;
       return {
         gradient: customOptions.gradientColors || [customOptions.backgroundColor || '#FFFFFF', customOptions.backgroundColor || '#FFFFFF'],
-        textColor: customOptions.primaryTextColor,
-        subTextColor: customOptions.secondaryTextColor,
+        textColor: isImageBg ? 'white' : customOptions.primaryTextColor,
+        subTextColor: isImageBg ? 'rgba(255, 255, 255, 0.9)' : customOptions.secondaryTextColor,
         backgroundType: customOptions.backgroundType,
         backgroundColor: customOptions.backgroundColor,
         backgroundImage: customOptions.backgroundImage,
+        backgroundOpacity: customOptions.backgroundOpacity || 1,
       };
     }
 
@@ -165,13 +169,24 @@ export default function WorkoutCardTemplate({
     }),
   };
 
-  return (
-    <LinearGradient
-      colors={config.gradient}
-      style={containerStyle}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
+  // 카드 콘텐츠 렌더링 함수
+  const renderCardContent = () => (
+    <>
+      {/* 배경 오버레이 (이미지 배경일 때 텍스트 가독성을 위해) */}
+      {config.backgroundType === 'image' && config.backgroundImage && (
+        <LinearGradient
+          colors={['rgba(0, 0, 0, 0.4)', 'rgba(0, 0, 0, 0.6)']}
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              borderRadius: customOptions?.borderRadius || 0,
+            }
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+        />
+      )}
+
       {/* 헤더 */}
       <View style={styles.header}>
         {/* 날짜 표시 (커스텀 옵션에 따라) */}
@@ -401,7 +416,14 @@ export default function WorkoutCardTemplate({
         {/* 로고 (커스텀 옵션에 따라) */}
         {(!customOptions || customOptions.showLogo) && (
           <View style={styles.logo}>
-            <Ionicons name="fitness" size={24 * fontMultiplier} color={config.textColor} />
+            <Image
+              source={require('@/assets/images/nu-icon.png')}
+              style={{
+                width: 24 * fontMultiplier,
+                height: 24 * fontMultiplier,
+                tintColor: config.textColor,
+              }}
+            />
             <Text style={[
               styles.appName,
               {
@@ -426,6 +448,34 @@ export default function WorkoutCardTemplate({
             : '#오운완 #헬스타그램 #운동기록'}
         </Text>
       </View>
+    </>
+  );
+
+  // 배경 이미지가 있는 경우와 그라데이션 배경 조건부 렌더링
+  if (config.backgroundType === 'image' && config.backgroundImage) {
+    return (
+      <ImageBackground
+        source={{ uri: config.backgroundImage }}
+        style={containerStyle}
+        imageStyle={{
+          borderRadius: customOptions?.borderRadius || 0,
+          opacity: config.backgroundOpacity || 1,
+        }}
+      >
+        {renderCardContent()}
+      </ImageBackground>
+    );
+  }
+
+  // 그라데이션 배경 (기본)
+  return (
+    <LinearGradient
+      colors={config.gradient}
+      style={containerStyle}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      {renderCardContent()}
     </LinearGradient>
   );
 }

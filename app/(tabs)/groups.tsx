@@ -27,7 +27,20 @@ export default function GroupsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets(); // Safe area insets 추가
   const { user } = useAuthStore();
-  const { groups, isLoading, fetchUserGroups, createGroup, joinGroupWithCode, selectGroup } = useGroupStore();
+  const {
+    groups,
+    isLoading,
+    fetchUserGroups,
+    createGroup,
+    joinGroupWithCode,
+    selectGroup,
+    sharedCards,
+    getAvailableSharedCards,
+    getMySharedCards,
+    fetchSharedCards,
+    getPendingCollaborativeCards,
+    getCompletedCollaborativeCards
+  } = useGroupStore();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -42,6 +55,15 @@ export default function GroupsScreen() {
       fetchUserGroups(user.id);
     }
   }, [user]);
+
+  // 그룹이 로드된 후 공유 카드 가져오기
+  useEffect(() => {
+    if (groups.length > 0) {
+      groups.forEach(group => {
+        fetchSharedCards(group.id);
+      });
+    }
+  }, [groups]);
 
   const handleCreateGroup = async () => {
     if (!user) {
@@ -225,6 +247,215 @@ export default function GroupsScreen() {
               새 그룹을 만들거나 초대를 받아보세요
             </ThemedText>
           </ThemedView>
+        )}
+
+        {/* 공유 카드 섹션 */}
+        {groups.length > 0 && user && (
+          <View style={styles.sharedCardsSection}>
+            {/* 내가 공유한 카드 - 운동 완료 후 해당 그룹에 공유한 카드 표시 */}
+            <ThemedText style={styles.sectionTitle}>내가 공유한 카드</ThemedText>
+            {groups.map(group => {
+              const myCards = getMySharedCards(group.id, user.id);
+              if (myCards.length === 0) return null;
+              return (
+                <View key={`my-${group.id}`}>
+                  <ThemedText style={styles.groupNameSmall}>{group.name}</ThemedText>
+                  {myCards.map(card => (
+                    <Pressable
+                      key={card.id}
+                      style={[styles.sharedCardItem, {
+                        backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white',
+                      }]}
+                      onPress={() => router.push(`/card/shared-detail?cardId=${card.id}`)}
+                    >
+                      <View style={styles.sharedCardIcon}>
+                        <Ionicons name="grid-outline" size={24} color={colors.tint} />
+                      </View>
+                      <View style={styles.sharedCardInfo}>
+                        <ThemedText style={styles.sharedCardTitle}>
+                          {card.splitType === 'horizontal' ? '상하' : '좌우'} 분할 카드
+                        </ThemedText>
+                        <ThemedText style={styles.sharedCardMeta}>
+                          {card.status === 'pending'
+                            ? '그룹원이 나머지 절반을 완성할 수 있어요'
+                            : '완성됨'}
+                        </ThemedText>
+                        <ThemedText style={styles.sharedCardExpiry}>
+                          만료: {new Date(card.expiresAt).toLocaleString()}
+                        </ThemedText>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                    </Pressable>
+                  ))}
+                </View>
+              );
+            })}
+            {groups.every(group => getMySharedCards(group.id, user?.id || '').length === 0) && (
+              <View style={styles.noCardsContainer}>
+                <ThemedText style={styles.noCardsText}>
+                  아직 공유한 카드가 없습니다
+                </ThemedText>
+              </View>
+            )}
+
+            {/* 협업 카드 섹션 - 대기중인 협업 카드 */}
+            <View style={styles.collaborativeSection}>
+              <View style={styles.sectionHeader}>
+                <ThemedText style={[styles.sectionTitle, { marginTop: 24 }]}>
+                  함께 완성하기 🤝
+                </ThemedText>
+                {groups.reduce((total, group) =>
+                  total + getPendingCollaborativeCards(group.id, user?.id || '').length, 0
+                ) > 0 && (
+                  <View style={[styles.badge, { backgroundColor: colors.tint }]}>
+                    <ThemedText style={styles.badgeText}>
+                      {groups.reduce((total, group) =>
+                        total + getPendingCollaborativeCards(group.id, user?.id || '').length, 0
+                      )}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+
+              {groups.map(group => {
+                const pendingCards = getPendingCollaborativeCards(group.id, user?.id || '');
+
+                if (pendingCards.length === 0) return null;
+
+                return (
+                  <View key={`collab-${group.id}`}>
+                    <ThemedText style={styles.groupNameSmall}>{group.name}</ThemedText>
+                    {pendingCards.map(card => {
+                      // 남은 시간 계산
+                      const timeLeft = new Date(card.expiresAt).getTime() - new Date().getTime();
+                      const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+                      const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+
+                      return (
+                        <Pressable
+                          key={card.id}
+                          style={[styles.collaborativeCardItem, {
+                            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white',
+                            borderColor: colors.tint,
+                          }]}
+                          onPress={() => {
+                            Alert.alert(
+                              '협업 카드 참여',
+                              '이 카드를 함께 완성하시겠습니까?\n운동을 시작하여 나머지 절반을 채워보세요!',
+                              [
+                                { text: '취소', style: 'cancel' },
+                                {
+                                  text: '함께 완성하기',
+                                  onPress: () => router.push(`/card/complete-shared?cardId=${card.id}`),
+                                },
+                              ]
+                            );
+                          }}
+                        >
+                          <View style={styles.collaborativeCardHeader}>
+                            <View style={[styles.collaborativeBadge, { backgroundColor: colors.tint }]}>
+                              <ThemedText style={styles.collaborativeBadgeText}>TOGETHER</ThemedText>
+                            </View>
+                            <View style={styles.timeLeftContainer}>
+                              <Ionicons name="time-outline" size={16} color={timeLeft < 3600000 ? '#ff6b6b' : colors.text} />
+                              <ThemedText style={[styles.timeLeftText, { color: timeLeft < 3600000 ? '#ff6b6b' : colors.text }]}>
+                                {hoursLeft}시간 {minutesLeft}분 남음
+                              </ThemedText>
+                            </View>
+                          </View>
+
+                          <View style={styles.collaborativeCardContent}>
+                            <View style={styles.cardPreview}>
+                              {card.splitType === 'horizontal' ? (
+                                <>
+                                  <View style={[styles.previewHalf, { backgroundColor: colors.tint, opacity: 0.8 }]} />
+                                  <View style={[styles.previewHalf, { backgroundColor: '#f0f0f0' }]}>
+                                    <ThemedText style={styles.previewText}>?</ThemedText>
+                                  </View>
+                                </>
+                              ) : (
+                                <View style={{ flexDirection: 'row', flex: 1 }}>
+                                  <View style={[styles.previewHalfVertical, { backgroundColor: colors.tint, opacity: 0.8 }]} />
+                                  <View style={[styles.previewHalfVertical, { backgroundColor: '#f0f0f0' }]}>
+                                    <ThemedText style={styles.previewText}>?</ThemedText>
+                                  </View>
+                                </View>
+                              )}
+                            </View>
+
+                            <View style={styles.collaborativeCardInfo}>
+                              <ThemedText style={styles.collaborativeCardTitle}>
+                                {card.firstHalf.username || '그룹원'}님과 함께 완성
+                              </ThemedText>
+                              <ThemedText style={styles.collaborativeCardDescription}>
+                                {card.splitType === 'horizontal' ? '상하' : '좌우'} 분할 • {card.splitPosition === 'top' || card.splitPosition === 'left' ? '아래' : '위'} 부분 대기중
+                              </ThemedText>
+
+                              <Pressable
+                                style={[styles.joinButton, { backgroundColor: colors.tint }]}
+                                onPress={() => router.push(`/card/complete-shared?cardId=${card.id}`)}
+                              >
+                                <Ionicons name="add-circle-outline" size={20} color="white" />
+                                <ThemedText style={styles.joinButtonText}>함께 완성하기</ThemedText>
+                              </Pressable>
+                            </View>
+                          </View>
+                        </Pressable>
+                  ))}
+                </View>
+              );
+            })}
+
+              {groups.every(group => getPendingCollaborativeCards(group.id, user?.id || '').length === 0) && (
+                <View style={styles.noCardsContainer}>
+                  <ThemedText style={styles.noCardsText}>
+                    대기중인 협업 카드가 없습니다
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+
+            {/* 완성된 협업 카드 섹션 */}
+            {groups.some(group => getCompletedCollaborativeCards(group.id).length > 0) && (
+              <View style={styles.completedSection}>
+                <ThemedText style={[styles.sectionTitle, { marginTop: 24 }]}>
+                  완성된 협업 카드 ✨
+                </ThemedText>
+                {groups.map(group => {
+                  const completedCards = getCompletedCollaborativeCards(group.id);
+                  if (completedCards.length === 0) return null;
+
+                  return (
+                    <View key={`completed-${group.id}`}>
+                      <ThemedText style={styles.groupNameSmall}>{group.name}</ThemedText>
+                      {completedCards.slice(0, 3).map(card => (
+                        <Pressable
+                          key={card.id}
+                          style={[styles.completedCardItem, {
+                            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : 'white',
+                          }]}
+                          onPress={() => router.push(`/card/view?cardId=${card.id}`)}
+                        >
+                          <View style={styles.completedCardIcon}>
+                            <Ionicons name="checkmark-circle" size={24} color="#4caf50" />
+                          </View>
+                          <View style={styles.completedCardInfo}>
+                            <ThemedText style={styles.completedCardTitle}>
+                              {card.firstHalf.username || '그룹원'} & {card.secondHalf?.username || '그룹원'}
+                            </ThemedText>
+                            <ThemedText style={styles.completedCardMeta}>
+                              {new Date(card.completedAt || card.createdAt).toLocaleDateString()} 완성
+                            </ThemedText>
+                          </View>
+                          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                        </Pressable>
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
         )}
       </ScrollView>
 
@@ -560,5 +791,215 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.8,
+  },
+  // 공유 카드 스타일
+  sharedCardsSection: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  groupNameSmall: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 10,
+    marginBottom: 8,
+    opacity: 0.7,
+  },
+  sharedCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sharedCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  sharedCardInfo: {
+    flex: 1,
+  },
+  sharedCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  sharedCardMeta: {
+    fontSize: 13,
+    opacity: 0.6,
+    marginBottom: 2,
+  },
+  sharedCardExpiry: {
+    fontSize: 12,
+    opacity: 0.5,
+  },
+  noCardsContainer: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  noCardsText: {
+    fontSize: 14,
+    opacity: 0.5,
+    textAlign: 'center',
+  },
+  // 협업 카드 스타일
+  collaborativeSection: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  collaborativeCardItem: {
+    borderRadius: 16,
+    borderWidth: 2,
+    marginBottom: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  collaborativeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    paddingBottom: 8,
+  },
+  collaborativeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  collaborativeBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  timeLeftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timeLeftText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  collaborativeCardContent: {
+    flexDirection: 'row',
+    padding: 12,
+    paddingTop: 0,
+    gap: 16,
+  },
+  cardPreview: {
+    width: 80,
+    height: 100,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  previewHalf: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewHalfVertical: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewText: {
+    fontSize: 24,
+    fontWeight: '700',
+    opacity: 0.3,
+  },
+  collaborativeCardInfo: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  collaborativeCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  collaborativeCardDescription: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginBottom: 12,
+  },
+  joinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 6,
+  },
+  joinButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // 완성된 카드 스타일
+  completedSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  completedCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    elevation: 1,
+  },
+  completedCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  completedCardInfo: {
+    flex: 1,
+  },
+  completedCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  completedCardMeta: {
+    fontSize: 12,
+    opacity: 0.6,
   },
 });

@@ -78,9 +78,9 @@ export default function AchievementBadge({
 
   // 크기별 스타일
   const sizeStyles = {
-    small: { badge: 60, icon: 24, text: 10 },
-    medium: { badge: 80, icon: 32, text: 12 },
-    large: { badge: 100, icon: 40, text: 14 },
+    small: { badge: 50, icon: 22, text: 9, container: 75 },
+    medium: { badge: 80, icon: 32, text: 12, container: 90 },
+    large: { badge: 100, icon: 40, text: 14, container: 110 },
   }[size];
 
   // 티어 색상
@@ -95,6 +95,7 @@ export default function AchievementBadge({
         style={[
           styles.container,
           {
+            width: sizeStyles.container,
             transform: [
               { scale: scaleAnim },
               {
@@ -199,7 +200,7 @@ export default function AchievementBadge({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    margin: 8,
+    marginBottom: 10,
     position: 'relative',
   },
   badge: {

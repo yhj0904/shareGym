@@ -57,17 +57,31 @@ export default function ActiveSessionScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const [showCheers, setShowCheers] = useState(false);
-  const [smartCheer, setSmartCheer] = useState<any>(null);
+  const [smartCheerQueue, setSmartCheerQueue] = useState<any[]>([]); // 응원 큐로 변경
+  const [currentSmartCheer, setCurrentSmartCheer] = useState<any>(null); // 현재 표시 중인 응원
   const { generateSmartCheer, analyzeWorkoutSession } = useWorkoutAnalyticsStore();
-  const [sessionInitialized, setSessionInitialized] = useState(false);
 
-  // currentSession이 없으면 새로운 세션 시작 (한 번만 실행)
+  // currentSession이 없으면 운동 탭으로 돌아가기 - 세션 시작은 운동 탭에서만
   useEffect(() => {
-    if (!currentSession && !sessionInitialized) {
-      startSession();
-      setSessionInitialized(true);
+    if (!currentSession) {
+      router.replace('/(tabs)/workout');
     }
-  }, [currentSession, sessionInitialized]);
+  }, [currentSession]);
+
+  // 스마트 응원 큐 관리
+  useEffect(() => {
+    // 현재 표시 중인 응원이 없고 큐에 응원이 있으면 첫 번째 응원을 표시
+    if (!currentSmartCheer && smartCheerQueue.length > 0) {
+      // 약간의 지연을 두고 다음 응원 표시 (이전 응원이 완전히 사라진 후)
+      const timer = setTimeout(() => {
+        const nextCheer = smartCheerQueue[0];
+        setCurrentSmartCheer(nextCheer);
+        setSmartCheerQueue(prev => prev.slice(1)); // 큐에서 제거
+      }, 300); // 300ms 지연
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentSmartCheer, smartCheerQueue]);
 
   // 세션 타이머 업데이트 - 운동이 시작되었을 때만 작동
   useEffect(() => {
@@ -81,58 +95,39 @@ export default function ActiveSessionScreen() {
     }
   }, [updateSessionTimer, currentSession?.exercises.length, isWorkoutStarted]);
 
-  // 실시간 운동 상태 시작
+  // 실시간 운동 상태 - 운동 시작 후에만 브로드캐스트 (운동 준비 시에는 카운트/전송 없음)
   useEffect(() => {
-    if (user && currentSession) {
-      // 현재 운동 중인 종목 찾기
-      const currentExercise = currentSession.exercises[activeExerciseIndex];
-      let exerciseName = '운동 중';
-
-      if (currentExercise) {
-        const exerciseType = exerciseDatabase.find(
-          e => e.id === currentExercise.exerciseTypeId
-        );
-        exerciseName = exerciseType?.nameKo || '운동 중';
-      }
-
-      // 실시간 운동 상태 시작
-      startLiveWorkout(
-        user.id,
-        user.username,
-        exerciseName,
-        currentGroup?.id
-      );
+    if (!isWorkoutStarted || !user || !currentSession) {
+      if (user) endLiveWorkout(user.id);
+      return;
     }
-
+    const currentExercise = currentSession.exercises[activeExerciseIndex];
+    let exerciseName = '운동 중';
+    if (currentExercise) {
+      const exerciseType = exerciseDatabase.find(e => e.id === currentExercise.exerciseTypeId);
+      exerciseName = exerciseType?.nameKo || '운동 중';
+    }
+    startLiveWorkout(user.id, user.username, exerciseName, currentGroup?.id);
     return () => {
-      // 컴포넌트 unmount 시 실시간 상태 종료
-      if (user) {
-        endLiveWorkout(user.id);
-      }
+      if (user) endLiveWorkout(user.id);
     };
-  }, [user, currentSession]);
+  }, [isWorkoutStarted, user, currentSession, activeExerciseIndex, currentGroup?.id]);
 
-  // 운동 진행 상황 업데이트
+  // 운동 진행 상황 업데이트 - 운동 시작 후에만 (운동 준비 시 카운트 없음)
   useEffect(() => {
-    if (user && currentSession) {
-      const currentExercise = currentSession.exercises[activeExerciseIndex];
-      let exerciseName = '운동 중';
-
-      if (currentExercise) {
-        const exerciseType = exerciseDatabase.find(
-          e => e.id === currentExercise.exerciseTypeId
-        );
-        exerciseName = exerciseType?.nameKo || '운동 중';
-      }
-
-      // 실시간 상태 업데이트
-      updateLiveWorkout({
-        currentExercise: exerciseName,
-        workoutDuration: Math.floor(sessionTimer / 60),
-        completedSets: getCompletedSets(),
-      });
+    if (!isWorkoutStarted || !user || !currentSession) return;
+    const currentExercise = currentSession.exercises[activeExerciseIndex];
+    let exerciseName = '운동 중';
+    if (currentExercise) {
+      const exerciseType = exerciseDatabase.find(e => e.id === currentExercise.exerciseTypeId);
+      exerciseName = exerciseType?.nameKo || '운동 중';
     }
-  }, [activeExerciseIndex, sessionTimer, currentSession]);
+    updateLiveWorkout({
+      currentExercise: exerciseName,
+      workoutDuration: Math.floor(sessionTimer / 60),
+      completedSets: getCompletedSets(),
+    });
+  }, [isWorkoutStarted, activeExerciseIndex, sessionTimer, currentSession, user]);
 
   // 받은 응원 확인
   useEffect(() => {
@@ -146,19 +141,53 @@ export default function ActiveSessionScreen() {
   }, [unreadCheersCount]);
 
   const handleAddExercise = () => {
-    // currentSession이 없으면 새로 생성
+    // currentSession이 있을 때만 운동 추가 가능
     if (!currentSession) {
-      startSession();
-      // 약간의 지연 후 exercise-select로 이동
-      setTimeout(() => {
-        router.replace('/workout/exercise-select'); // push 대신 replace 사용
-      }, 100);
-    } else {
-      router.replace('/workout/exercise-select'); // push 대신 replace 사용
+      Alert.alert(
+        '세션 없음',
+        '운동 세션이 없습니다. 운동 탭에서 세션을 시작해주세요.',
+        [{ text: '확인', onPress: () => router.replace('/(tabs)/workout') }]
+      );
+      return;
     }
+    router.replace('/workout/exercise-select'); // push 대신 replace 사용
   };
 
   const handleEndWorkout = () => {
+    // 운동을 시작한 후에만 완료 가능
+    if (!isWorkoutStarted) {
+      Alert.alert(
+        '운동을 시작해주세요',
+        '우측 하단 "운동 시작" 버튼을 눌러 운동을 시작한 후 완료할 수 있습니다.',
+        [{ text: '확인' }]
+      );
+      return;
+    }
+
+    // 운동이 없는지 체크
+    if (!currentSession || currentSession.exercises.length === 0) {
+      Alert.alert(
+        '운동 없음',
+        '운동을 추가해주세요.',
+        [{ text: '확인' }]
+      );
+      return;
+    }
+
+    // 완료된 세트가 있는지 체크
+    const hasCompletedSets = currentSession.exercises.some(exercise =>
+      exercise.sets.some(set => set.completed)
+    );
+
+    if (!hasCompletedSets) {
+      Alert.alert(
+        '운동 미완료',
+        '최소 1개 이상의 세트를 완료해주세요.',
+        [{ text: '확인' }]
+      );
+      return;
+    }
+
     Alert.alert(
       '운동 종료',
       '운동을 종료하시겠습니까?',
@@ -181,6 +210,8 @@ export default function ActiveSessionScreen() {
 
   // 세트 완료 시 스마트 응원 생성
   const handleSetComplete = useCallback((exercise: any, setIndex: number, weight?: number, reps?: number) => {
+    console.log(`세트 완료: ${exercise.exerciseTypeId} - 인덱스: ${setIndex}, 총 세트: ${exercise.sets.length}`); // 더 자세한 디버깅
+
     const cheer = generateSmartCheer(
       exercise,
       setIndex,
@@ -190,7 +221,9 @@ export default function ActiveSessionScreen() {
     );
 
     if (cheer) {
-      setSmartCheer(cheer);
+      console.log(`응원 생성: [${cheer.trigger}] ${cheer.message}`); // 더 자세한 디버깅
+      // 응원을 큐에 추가
+      setSmartCheerQueue(prev => [...prev, cheer]);
     }
   }, [generateSmartCheer]);
 
@@ -228,6 +261,19 @@ export default function ActiveSessionScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* 스마트 응원 알림 - 모든 UI 요소 위에 표시 (최상단으로 이동) */}
+      {currentSmartCheer && (
+        <SmartCheerNotification
+          message={currentSmartCheer.message}
+          emoji={currentSmartCheer.emoji}
+          trigger={currentSmartCheer.trigger}
+          context={currentSmartCheer.context}
+          onDismiss={() => setCurrentSmartCheer(null)} // 현재 응원 종료 시 다음 응원이 자동으로 표시됨
+          position="top"
+          duration={3000} // 표시 시간을 3초로 단축
+        />
+      )}
+
       {/* 헤더 - 모달에서 최소한의 SafeArea 적용 */}
       <ThemedView style={[styles.header, {
         marginTop: Math.min(insets.top, 20),
@@ -246,8 +292,16 @@ export default function ActiveSessionScreen() {
           </ThemedText>
         </ThemedView>
 
-        <Pressable onPress={handleEndWorkout} style={styles.headerButton}>
-          <ThemedText style={[styles.endButton, { color: colors.tint }]}>완료</ThemedText>
+        <Pressable
+          onPress={handleEndWorkout}
+          style={styles.headerButton}
+        >
+          <ThemedText style={[
+            styles.endButton,
+            { color: (!hasExercises || getCompletedSets() === 0) ? '#999' : colors.tint }
+          ]}>
+            완료
+          </ThemedText>
         </Pressable>
       </ThemedView>
 
@@ -259,18 +313,6 @@ export default function ActiveSessionScreen() {
             {receivedCheers[0].fromUsername}님이 응원을 보냈어요! {receivedCheers[0].content}
           </ThemedText>
         </View>
-      )}
-
-      {/* 스마트 응원 알림 */}
-      {smartCheer && (
-        <SmartCheerNotification
-          message={smartCheer.message}
-          emoji={smartCheer.emoji}
-          trigger={smartCheer.trigger}
-          context={smartCheer.context}
-          onDismiss={() => setSmartCheer(null)}
-          position="top"
-        />
       )}
 
       {/* 휴식 타이머 */}
@@ -301,6 +343,7 @@ export default function ActiveSessionScreen() {
               onSetComplete={(setIndex, weight, reps) =>
                 handleSetComplete(exercise, setIndex, weight, reps)
               }
+              canCompleteSet={isWorkoutStarted}
             />
           ))
         )}

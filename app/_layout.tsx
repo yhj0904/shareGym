@@ -21,7 +21,16 @@ export default function RootLayout() {
         <Stack.Screen name="routine/exercise-select" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="card/create" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="card/gallery" options={{ headerShown: false }} />
+        <Stack.Screen name="card/view" options={{ headerShown: false }} />
+        <Stack.Screen name="card/complete-shared" options={{ headerShown: false }} />
         <Stack.Screen name="group/[id]" options={{ headerShown: false }} />
+        {/* 업적과 설정 화면 헤더 숨기기 */}
+        <Stack.Screen name="achievements/index" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/index" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/profile-edit" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/badge-select" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/privacy" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/terms" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

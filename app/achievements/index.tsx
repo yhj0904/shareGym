@@ -10,8 +10,8 @@ import {
   View,
   Pressable,
   SectionList,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -93,15 +93,16 @@ export default function AchievementsScreen() {
   }, [userAchievements]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { backgroundColor: colors.card }]}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </Pressable>
-        <ThemedText style={styles.headerTitle}>업적</ThemedText>
-        <View style={styles.headerRight} />
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <ThemedView style={styles.container}>
+        {/* 헤더 */}
+        <View style={[styles.header, { backgroundColor: colors.card }]}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </Pressable>
+          <ThemedText style={styles.headerTitle}>업적</ThemedText>
+          <View style={styles.headerRight} />
+        </View>
 
       {/* 전체 진행률 */}
       <LinearGradient
@@ -291,6 +292,7 @@ export default function AchievementsScreen() {
           setSelectedAchievement(null);
         }}
       />
+      </ThemedView>
     </SafeAreaView>
   );
 }

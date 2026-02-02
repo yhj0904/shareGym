@@ -22,9 +22,11 @@ interface ExerciseCardProps {
   isActive: boolean;
   onPress: () => void;
   onSetComplete?: (setIndex: number, weight?: number, reps?: number) => void;
+  /** 운동 시작 후에만 세트 완료 체크 가능 (false면 탭 시 알림) */
+  canCompleteSet?: boolean;
 }
 
-export default function ExerciseCard({ exercise, isActive, onPress, onSetComplete }: ExerciseCardProps) {
+export default function ExerciseCard({ exercise, isActive, onPress, onSetComplete, canCompleteSet = true }: ExerciseCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const {
@@ -84,7 +86,7 @@ export default function ExerciseCard({ exercise, isActive, onPress, onSetComplet
   };
 
   return (
-    <Pressable onPress={onPress}>
+    <>
       <ThemedView
         style={[
           styles.container,
@@ -96,7 +98,7 @@ export default function ExerciseCard({ exercise, isActive, onPress, onSetComplet
         ]}
       >
         {/* 헤더 */}
-        <View style={styles.header}>
+        <Pressable onPress={onPress} style={styles.header}>
           <View style={styles.headerLeft}>
             <ThemedText style={styles.exerciseName}>
               {exerciseType?.nameKo || exercise.exerciseTypeId}
@@ -140,7 +142,7 @@ export default function ExerciseCard({ exercise, isActive, onPress, onSetComplet
               <Ionicons name="trash-outline" size={20} color="#ff4444" />
             </Pressable>
           </View>
-        </View>
+        </Pressable>
 
         {/* 메모 표시 */}
         {exercise.notes && (
@@ -202,6 +204,7 @@ export default function ExerciseCard({ exercise, isActive, onPress, onSetComplet
                   onSetComplete={(weight, reps) => {
                     onSetComplete?.(index, weight, reps);
                   }}
+                  canCompleteSet={canCompleteSet}
                 />
               ))}
             </>
@@ -358,7 +361,7 @@ export default function ExerciseCard({ exercise, isActive, onPress, onSetComplet
           </Pressable>
         </Pressable>
       </Modal>
-    </Pressable>
+    </>
   );
 }
 

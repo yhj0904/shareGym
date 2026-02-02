@@ -8,6 +8,7 @@ import {
   Dimensions,
   Modal,
   Switch,
+  Image,
 } from 'react-native';
 // SafeAreaProvider가 상위 _layout.tsx에서 제공되므로 제거
 import { ThemedView } from '@/components/ThemedView';
@@ -17,9 +18,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import useWorkoutStore from '@/stores/workoutStore';
+import useGroupStore from '@/stores/groupStore';
+import useAuthStore from '@/stores/authStore';
 import ViewShot from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
+import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import WorkoutCardTemplate from '@/components/card/WorkoutCardTemplate';
 import CardCustomizer from '@/components/card/CardCustomizer';
 import AdvancedCardCustomizer from '@/components/card/AdvancedCardCustomizer';
@@ -151,6 +156,8 @@ export default function CreateCardScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { lastWorkout } = useWorkoutStore();
+  const { groups, createSharedCard, fetchUserGroups } = useGroupStore();
+  const { user } = useAuthStore();
   const viewShotRef = useRef<ViewShot>(null);
 
   const [selectedStyle, setSelectedStyle] = useState<CardStyle>('minimal');
@@ -160,6 +167,17 @@ export default function CreateCardScreen() {
   const [showCustomizer, setShowCustomizer] = useState(false); // 커스터마이저 모달 표시 여부
   const [useAdvancedMode, setUseAdvancedMode] = useState(false); // 고급 모드 여부
   const [showPresetManager, setShowPresetManager] = useState(false); // 프리셋 관리자 표시 여부
+  const [showGroupShareModal, setShowGroupShareModal] = useState(false); // 그룹 공유 모달
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [splitType, setSplitType] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [splitPosition, setSplitPosition] = useState<'top' | 'bottom' | 'left' | 'right'>('top');
+
+  // 그룹 데이터 로드
+  useEffect(() => {
+    if (user) {
+      fetchUserGroups(user.id);
+    }
+  }, [user]);
 
   // 저장된 커스텀 설정 불러오기
   useEffect(() => {
@@ -189,10 +207,83 @@ export default function CreateCardScreen() {
     }
   };
 
+  // 카메라로 사진 찍기 함수
+  const takePhoto = async () => {
+    try {
+      // 카메라 권한 요청
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('권한 필요', '카메라 접근 권한이 필요합니다.');
+        return;
+      }
+
+      // 카메라 실행
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [9, 16], // 세로 비율 (스토리 비율)
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        // 배경 이미지로 설정
+        setCustomOptions({
+          ...customOptions,
+          backgroundType: 'image',
+          backgroundImage: result.assets[0].uri,
+        });
+      }
+    } catch (error) {
+      console.error('카메라 오류:', error);
+      Alert.alert('오류', '사진 촬영 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 갤러리에서 사진 선택 함수
+  const pickImage = async () => {
+    try {
+      // 갤러리 권한 요청
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('권한 필요', '갤러리 접근 권한이 필요합니다.');
+        return;
+      }
+
+      // 갤러리 열기
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [9, 16], // 세로 비율 (스토리 비율)
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        // 배경 이미지로 설정
+        setCustomOptions({
+          ...customOptions,
+          backgroundType: 'image',
+          backgroundImage: result.assets[0].uri,
+        });
+      }
+    } catch (error) {
+      console.error('갤러리 오류:', error);
+      Alert.alert('오류', '사진 선택 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 배경 이미지 제거 함수
+  const removeBackgroundImage = () => {
+    setCustomOptions({
+      ...customOptions,
+      backgroundType: 'gradient',
+      backgroundImage: undefined,
+    });
+  };
+
   const cardStyles = [
-    { id: 'minimal', name: '미니멀', colors: ['#FFFFFF', '#F5F5F5'] },
+    { id: 'minimal', name: '미니멀', colors: ['#FFFFFF', '#E8E8E8'] },
     { id: 'gradient', name: '그라데이션', colors: ['#667eea', '#764ba2'] },
-    { id: 'dark', name: '다크', colors: ['#1a1a1a', '#2d2d2d'] },
+    { id: 'dark', name: '다크', colors: ['#1a1a1a', '#3a3a3a'] },
     { id: 'colorful', name: '컬러풀', colors: ['#f093fb', '#f5576c'] },
     { id: 'ocean', name: '오션', colors: ['#2E3192', '#1BFFFF'] },
     { id: 'sunset', name: '선셋', colors: ['#FF512F', '#F09819'] },
@@ -245,6 +336,69 @@ export default function CreateCardScreen() {
       Alert.alert('오류', '카드 공유에 실패했습니다.');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // 그룹 공유 모달 열기
+  const handleOpenGroupShare = () => {
+    // 사용자가 속한 그룹이 있는지 확인
+    const userGroups = groups.filter(g => g.members.includes(user?.id || ''));
+    if (userGroups.length === 0) {
+      Alert.alert('그룹 없음', '먼저 그룹에 가입해주세요.');
+      return;
+    }
+    setShowGroupShareModal(true);
+  };
+
+  // 그룹 공유 카드 생성
+  const handleCreateGroupCard = async () => {
+    if (!selectedGroup || !lastWorkout || !user) {
+      Alert.alert('오류', '필요한 정보가 없습니다.');
+      return;
+    }
+
+    try {
+      // 분할 방향에 따른 위치 조정
+      const adjustedPosition = splitType === 'horizontal'
+        ? (splitPosition === 'top' || splitPosition === 'bottom' ? splitPosition : 'top')
+        : (splitPosition === 'left' || splitPosition === 'right' ? splitPosition : 'left');
+
+      // 현재 설정된 스타일 사용
+      const currentStyle = useCustomMode ? undefined : selectedStyle;
+      const currentOptions = useCustomMode ? customOptions : undefined;
+
+      await createSharedCard(
+        selectedGroup,
+        user.id,
+        lastWorkout.id,
+        splitType,
+        adjustedPosition,
+        currentStyle,
+        currentOptions
+      );
+
+      setShowGroupShareModal(false);
+
+      Alert.alert(
+        '공유 카드 생성 완료',
+        '그룹 멤버가 나머지 절반을 완성할 수 있습니다. 24시간 내에 완성되지 않으면 자동으로 삭제됩니다.',
+        [
+          {
+            text: '확인',
+            onPress: () => {
+              // 모달 먼저 모두 닫아서 루트로 복귀
+              router.dismissAll();
+              // 루트에서 그룹 탭으로 완전히 이동 (모달이 아닌 홈 탭으로)
+              setTimeout(() => {
+                router.replace('/(tabs)/groups');
+              }, 300);
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('오류', '공유 카드 생성에 실패했습니다.');
+      console.error(error);
     }
   };
 
@@ -357,11 +511,11 @@ export default function CreateCardScreen() {
                 ]}
                 onPress={() => setSelectedStyle(style.id as CardStyle)}
               >
-                <View
-                  style={[
-                    styles.stylePreview,
-                    { backgroundColor: style.colors[0] },
-                  ]}
+                <LinearGradient
+                  colors={style.colors}
+                  style={styles.stylePreview}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                 />
                 <ThemedText style={styles.styleName}>{style.name}</ThemedText>
               </Pressable>
@@ -372,6 +526,46 @@ export default function CreateCardScreen() {
             /* 커스텀 디자인 옵션 (커스텀 모드일 때) */
             <>
               <ThemedText style={styles.sectionTitle}>커스텀 디자인</ThemedText>
+
+              {/* 배경 사진 설정 섹션 */}
+              <View style={styles.photoSection}>
+                <ThemedText style={styles.photoSectionTitle}>배경 사진</ThemedText>
+                {customOptions.backgroundImage ? (
+                  <View style={styles.selectedImageContainer}>
+                    <Image
+                      source={{ uri: customOptions.backgroundImage }}
+                      style={styles.selectedImagePreview}
+                    />
+                    <Pressable
+                      style={styles.removeImageButton}
+                      onPress={removeBackgroundImage}
+                    >
+                      <Ionicons name="close-circle" size={24} color="#FF3B30" />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.photoButtonsRow}>
+                    <Pressable
+                      style={[styles.photoButton, { backgroundColor: colors.tint }]}
+                      onPress={takePhoto}
+                    >
+                      <Ionicons name="camera" size={24} color="white" />
+                      <ThemedText style={styles.photoButtonText}>사진 찍기</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.photoButton, {
+                        backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5'
+                      }]}
+                      onPress={pickImage}
+                    >
+                      <Ionicons name="images" size={24} color={colors.text} />
+                      <ThemedText style={[styles.photoButtonText, { color: colors.text }]}>
+                        갤러리
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
 
               {/* 고급 모드 토글 */}
               <View style={styles.advancedModeRow}>
@@ -452,6 +646,22 @@ export default function CreateCardScreen() {
             </ThemedText>
           </Pressable>
 
+          {/* 그룹 공유 카드 버튼 - 그룹에 속한 경우에만 표시 */}
+          {groups.filter(g => g.members.includes(user?.id || '')).length > 0 && (
+            <Pressable
+              style={[
+                styles.actionButton,
+                { backgroundColor: colorScheme === 'dark' ? '#3a3a3a' : '#f0f0f0' },
+              ]}
+              onPress={handleOpenGroupShare}
+            >
+              <Ionicons name="people-outline" size={24} color={colors.text} />
+              <ThemedText style={[styles.actionButtonText, { color: colors.text }]}>
+                그룹 공유 카드
+              </ThemedText>
+            </Pressable>
+          )}
+
           <Pressable
             style={[
               styles.actionButton,
@@ -513,6 +723,191 @@ export default function CreateCardScreen() {
         visible={showPresetManager}
         onClose={() => setShowPresetManager(false)}
       />
+
+      {/* 그룹 공유 카드 생성 모달 */}
+      <Modal
+        visible={showGroupShareModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowGroupShareModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.groupShareModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.modalHeaderGroup}>
+              <ThemedText style={styles.modalTitle}>그룹 공유 카드 만들기</ThemedText>
+              <Pressable onPress={() => setShowGroupShareModal(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+            </View>
+
+            <ThemedText style={styles.modalSubtitle}>
+              그룹 멤버와 함께 2분할 운동 카드를 만들어보세요!
+            </ThemedText>
+
+            {/* 그룹 선택 */}
+            <View style={styles.selectionSection}>
+              <ThemedText style={styles.sectionLabel}>그룹 선택</ThemedText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionList}>
+                {groups
+                  .filter(g => g.members.includes(user?.id || ''))
+                  .map(group => (
+                    <Pressable
+                      key={group.id}
+                      style={[
+                        styles.optionItem,
+                        selectedGroup === group.id && styles.selectedOption,
+                        { borderColor: selectedGroup === group.id ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSelectedGroup(group.id)}
+                    >
+                      <Ionicons
+                        name="people"
+                        size={20}
+                        color={selectedGroup === group.id ? colors.tint : colors.text}
+                      />
+                      <ThemedText style={styles.optionText}>{group.name}</ThemedText>
+                    </Pressable>
+                  ))}
+              </ScrollView>
+            </View>
+
+            {/* 분할 방향 선택 */}
+            <View style={styles.selectionSection}>
+              <ThemedText style={styles.sectionLabel}>분할 방향</ThemedText>
+              <View style={styles.splitTypeRow}>
+                <Pressable
+                  style={[
+                    styles.splitTypeOption,
+                    splitType === 'horizontal' && styles.selectedSplitType,
+                    { borderColor: splitType === 'horizontal' ? colors.tint : '#ddd' }
+                  ]}
+                  onPress={() => {
+                    setSplitType('horizontal');
+                    setSplitPosition('top');
+                  }}
+                >
+                  <View style={styles.splitPreview}>
+                    <View style={[styles.splitBox, styles.horizontalTop, {
+                      backgroundColor: splitType === 'horizontal' ? colors.tint : '#ddd'
+                    }]} />
+                    <View style={[styles.splitBox, styles.horizontalBottom]} />
+                  </View>
+                  <ThemedText style={styles.splitTypeText}>상하 분할</ThemedText>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.splitTypeOption,
+                    splitType === 'vertical' && styles.selectedSplitType,
+                    { borderColor: splitType === 'vertical' ? colors.tint : '#ddd' }
+                  ]}
+                  onPress={() => {
+                    setSplitType('vertical');
+                    setSplitPosition('left');
+                  }}
+                >
+                  <View style={styles.splitPreview}>
+                    <View style={[styles.splitBox, styles.verticalLeft, {
+                      backgroundColor: splitType === 'vertical' ? colors.tint : '#ddd'
+                    }]} />
+                    <View style={[styles.splitBox, styles.verticalRight]} />
+                  </View>
+                  <ThemedText style={styles.splitTypeText}>좌우 분할</ThemedText>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* 위치 선택 */}
+            <View style={styles.selectionSection}>
+              <ThemedText style={styles.sectionLabel}>내 운동 위치</ThemedText>
+              <View style={styles.positionRow}>
+                {splitType === 'horizontal' ? (
+                  <>
+                    <Pressable
+                      style={[
+                        styles.positionOption,
+                        splitPosition === 'top' && styles.selectedPosition,
+                        { borderColor: splitPosition === 'top' ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSplitPosition('top')}
+                    >
+                      <Ionicons name="arrow-up" size={20} color={colors.text} />
+                      <ThemedText style={styles.positionText}>위쪽</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.positionOption,
+                        splitPosition === 'bottom' && styles.selectedPosition,
+                        { borderColor: splitPosition === 'bottom' ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSplitPosition('bottom')}
+                    >
+                      <Ionicons name="arrow-down" size={20} color={colors.text} />
+                      <ThemedText style={styles.positionText}>아래쪽</ThemedText>
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <Pressable
+                      style={[
+                        styles.positionOption,
+                        splitPosition === 'left' && styles.selectedPosition,
+                        { borderColor: splitPosition === 'left' ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSplitPosition('left')}
+                    >
+                      <Ionicons name="arrow-back" size={20} color={colors.text} />
+                      <ThemedText style={styles.positionText}>왼쪽</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.positionOption,
+                        splitPosition === 'right' && styles.selectedPosition,
+                        { borderColor: splitPosition === 'right' ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSplitPosition('right')}
+                    >
+                      <Ionicons name="arrow-forward" size={20} color={colors.text} />
+                      <ThemedText style={styles.positionText}>오른쪽</ThemedText>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            </View>
+
+            {/* 액션 버튼 */}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalButton, { backgroundColor: colors.tint }]}
+                onPress={handleCreateGroupCard}
+                disabled={!selectedGroup}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="white" />
+                <ThemedText style={styles.modalButtonText}>공유 카드 생성</ThemedText>
+              </Pressable>
+
+              <Pressable
+                style={[styles.modalButton, styles.skipButton, {
+                  borderColor: colorScheme === 'dark' ? '#444' : '#ddd',
+                }]}
+                onPress={() => setShowGroupShareModal(false)}
+              >
+                <ThemedText style={[styles.modalButtonText, { color: colors.text }]}>
+                  취소
+                </ThemedText>
+              </Pressable>
+            </View>
+
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.text} />
+              <ThemedText style={styles.infoText}>
+                생성된 공유 카드는 24시간 동안 유효하며,{'\n'}
+                그룹 멤버가 나머지 절반을 완성할 수 있습니다.
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -624,6 +1019,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  // 사진 관련 스타일
+  photoSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: 12,
+  },
+  photoSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+    opacity: 0.8,
+  },
+  photoButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  photoButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  photoButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+  },
+  selectedImageContainer: {
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  selectedImagePreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'white',
+    borderRadius: 12,
+  },
   advancedModeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -721,5 +1165,170 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  // 그룹 공유 모달 스타일
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  groupShareModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeaderGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  closeButton: {
+    padding: 5,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  selectionSection: {
+    marginVertical: 15,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+    opacity: 0.8,
+  },
+  optionList: {
+    flexDirection: 'row',
+    maxHeight: 50,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginRight: 10,
+    gap: 8,
+  },
+  selectedOption: {
+    borderWidth: 2,
+  },
+  optionText: {
+    fontSize: 14,
+  },
+  splitTypeRow: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  splitTypeOption: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  selectedSplitType: {
+    borderWidth: 2,
+  },
+  splitPreview: {
+    width: 60,
+    height: 80,
+    flexDirection: 'row',
+    marginBottom: 8,
+    borderRadius: 5,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  splitBox: {
+    flex: 1,
+  },
+  horizontalTop: {
+    height: '50%',
+    width: '100%',
+  },
+  horizontalBottom: {
+    height: '50%',
+    width: '100%',
+    backgroundColor: '#f0f0f0',
+    position: 'absolute',
+    bottom: 0,
+  },
+  verticalLeft: {
+    width: '50%',
+    height: '100%',
+  },
+  verticalRight: {
+    width: '50%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+  },
+  splitTypeText: {
+    fontSize: 12,
+  },
+  positionRow: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  positionOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  selectedPosition: {
+    borderWidth: 2,
+  },
+  positionText: {
+    fontSize: 14,
+  },
+  modalActions: {
+    gap: 12,
+    marginTop: 10,
+  },
+  modalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  skipButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: 'rgba(0, 122, 255, 0.05)',
+    borderRadius: 8,
+    gap: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.8,
   },
 });

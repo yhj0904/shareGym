@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@/types';
 import uuid from 'react-native-uuid';
+import { isBackendEnabled, signIn as apiSignIn, signUp as apiSignUp, signOut as apiSignOut, setAuthToken } from '@/lib/api';
 
 // Firebase imports commented out for test mode
 // import {
@@ -58,8 +59,11 @@ const mockUsers: { [key: string]: { password: string; user: User } } = {
     user: {
       id: 'test-user-001',
       username: 'TestUser',
+      email: 'test@test.com',
       profileImage: undefined,
+      bio: '운동을 사랑하는 헬스 매니아입니다 💪',
       badges: ['early_bird', 'week_warrior'],
+      displayBadges: ['💪', '🔥', '🏆'],
       following: [],
       followers: [],
       stats: {
@@ -81,8 +85,11 @@ const mockUsers: { [key: string]: { password: string; user: User } } = {
     user: {
       id: 'test-user-002',
       username: 'GymBuddy',
+      email: 'test2@test.com',
       profileImage: undefined,
+      bio: '함께 운동해요! 💯',
       badges: ['consistency_king'],
+      displayBadges: ['🏋️', '📅'],
       following: ['test-user-001'],
       followers: ['test-user-001'],
       stats: {
@@ -111,31 +118,26 @@ const useAuthStore = create<AuthStore>()(
       signIn: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
 
-        // Simulate network delay
+        if (isBackendEnabled()) {
+          try {
+            const res = await apiSignIn({ email, password });
+            await setAuthToken(res.token);
+            set({ user: res.user, isLoading: false, error: null });
+          } catch (error: any) {
+            set({ error: error?.message ?? '로그인에 실패했습니다.', isLoading: false });
+            throw error;
+          }
+          return;
+        }
+
         await new Promise(resolve => setTimeout(resolve, 500));
-
         try {
-          // Check if user exists in mock database
           const mockUser = mockUsers[email];
-
-          if (!mockUser) {
-            throw new Error('사용자를 찾을 수 없습니다.');
-          }
-
-          if (mockUser.password !== password) {
-            throw new Error('비밀번호가 일치하지 않습니다.');
-          }
-
-          // Login successful
-          set({
-            user: mockUser.user,
-            isLoading: false,
-          });
+          if (!mockUser) throw new Error('사용자를 찾을 수 없습니다.');
+          if (mockUser.password !== password) throw new Error('비밀번호가 일치하지 않습니다.');
+          set({ user: mockUser.user, isLoading: false });
         } catch (error: any) {
-          set({
-            error: error.message,
-            isLoading: false,
-          });
+          set({ error: error.message, isLoading: false });
           throw error;
         }
       },
@@ -143,22 +145,23 @@ const useAuthStore = create<AuthStore>()(
       signUp: async (email: string, password: string, username: string) => {
         set({ isLoading: true, error: null });
 
-        // Simulate network delay
+        if (isBackendEnabled()) {
+          try {
+            const res = await apiSignUp({ email, password, username });
+            await setAuthToken(res.token);
+            set({ user: res.user, isLoading: false, error: null });
+          } catch (error: any) {
+            set({ error: error?.message ?? '회원가입에 실패했습니다.', isLoading: false });
+            throw error;
+          }
+          return;
+        }
+
         await new Promise(resolve => setTimeout(resolve, 500));
-
         try {
-          // Check if email already exists
-          if (mockUsers[email]) {
-            throw new Error('이미 가입된 이메일입니다.');
-          }
-
-          // Check if username is available
+          if (mockUsers[email]) throw new Error('이미 가입된 이메일입니다.');
           const usernameAvailable = await get().checkUsername(username);
-          if (!usernameAvailable) {
-            throw new Error('이미 사용 중인 사용자명입니다.');
-          }
-
-          // Create new user
+          if (!usernameAvailable) throw new Error('이미 사용 중인 사용자명입니다.');
           const newUser: User = {
             id: uuid.v4() as string,
             username,
@@ -166,51 +169,29 @@ const useAuthStore = create<AuthStore>()(
             badges: [],
             following: [],
             followers: [],
-            stats: {
-              totalWorkouts: 0,
-              currentStreak: 0,
-              totalVolume: 0,
-              favoriteExercise: '',
-            },
+            stats: { totalWorkouts: 0, currentStreak: 0, totalVolume: 0, favoriteExercise: '' },
           };
-
-          // Save to mock database
-          mockUsers[email] = {
-            password,
-            user: newUser,
-          };
-
-          set({
-            user: newUser,
-            isLoading: false,
-          });
+          mockUsers[email] = { password, user: newUser };
+          set({ user: newUser, isLoading: false });
         } catch (error: any) {
-          set({
-            error: error.message,
-            isLoading: false,
-          });
+          set({ error: error.message, isLoading: false });
           throw error;
         }
       },
 
       signOutUser: async () => {
         set({ isLoading: true });
-
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        try {
-          set({
-            user: null,
-            isLoading: false,
-          });
-        } catch (error: any) {
-          set({
-            error: error.message,
-            isLoading: false,
-          });
-          throw error;
+        if (isBackendEnabled()) {
+          try {
+            await apiSignOut();
+          } finally {
+            await setAuthToken(null);
+            set({ user: null, isLoading: false });
+          }
+          return;
         }
+        await new Promise(resolve => setTimeout(resolve, 300));
+        set({ user: null, isLoading: false });
       },
 
       updateUserProfile: async (updates: Partial<User>) => {

@@ -153,6 +153,104 @@ const useAchievementStore = create<AchievementStore>()(
                 const date = new Date(workout.date);
                 if (date.getMonth() === 0 && date.getDate() === 1) progress = 1;
                 break;
+
+              // 복귀 관련 뱃지
+              case 'comeback-week':
+              case 'comeback-2weeks':
+                if (state.lastWorkoutDate && allWorkouts.length > 1) {
+                  const sortedWorkouts = [...allWorkouts].sort((a, b) =>
+                    new Date(b.date).getTime() - new Date(a.date).getTime()
+                  );
+                  if (sortedWorkouts.length >= 2) {
+                    const currentWorkout = new Date(sortedWorkouts[0].date);
+                    const previousWorkout = new Date(sortedWorkouts[1].date);
+                    const daysDiff = Math.floor(
+                      (currentWorkout.getTime() - previousWorkout.getTime()) / (1000 * 60 * 60 * 24)
+                    );
+                    if (achievement.id === 'comeback-week' && daysDiff >= 7) progress = 7;
+                    if (achievement.id === 'comeback-2weeks' && daysDiff >= 14) progress = 14;
+                  }
+                }
+                break;
+
+              // 근육 부위별 마스터 뱃지
+              case 'shoulder-master':
+              case 'back-master':
+              case 'leg-master':
+              case 'glute-master':
+              case 'chest-master':
+              case 'core-training':
+                // 각 부위별 운동 세트 수 계산
+                let muscleSetCount = 0;
+                const targetCategory = achievement.id.split('-')[0];
+                allWorkouts.forEach(w => {
+                  w.exercises.forEach(e => {
+                    // 운동 타입에서 카테고리 확인 (exercises 데이터와 연동 필요)
+                    if (targetCategory === 'shoulder' && e.exerciseTypeId.includes('shoulder')) {
+                      muscleSetCount += e.sets.filter(s => s.completed).length;
+                    } else if (targetCategory === 'back' && e.exerciseTypeId.includes('back')) {
+                      muscleSetCount += e.sets.filter(s => s.completed).length;
+                    } else if (targetCategory === 'leg' && e.exerciseTypeId.includes('leg')) {
+                      muscleSetCount += e.sets.filter(s => s.completed).length;
+                    } else if (targetCategory === 'glute' && e.exerciseTypeId.includes('glute')) {
+                      muscleSetCount += e.sets.filter(s => s.completed).length;
+                    } else if (targetCategory === 'chest' && e.exerciseTypeId.includes('chest')) {
+                      muscleSetCount += e.sets.filter(s => s.completed).length;
+                    } else if (targetCategory === 'core' && (e.exerciseTypeId.includes('abs') || e.exerciseTypeId.includes('core'))) {
+                      muscleSetCount += e.sets.filter(s => s.completed).length;
+                    }
+                  });
+                });
+                progress = muscleSetCount;
+                break;
+
+              // 주간 출석 관련
+              case 'week-7days':
+              case 'week-4days':
+                // 최근 7일간의 운동 일수 계산
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                const recentWorkouts = allWorkouts.filter(w =>
+                  new Date(w.date) >= oneWeekAgo
+                );
+                const uniqueDays = new Set(
+                  recentWorkouts.map(w => {
+                    const d = new Date(w.date);
+                    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+                  })
+                );
+                progress = uniqueDays.size;
+                break;
+
+              // 추가 특별 뱃지
+              case 'iron-beginner':
+                // 첫 웨이트 운동 확인
+                const hasWeightExercise = workout.exercises.some(e =>
+                  e.sets.some(s => s.weight && s.weight > 0 && s.completed)
+                );
+                if (hasWeightExercise) progress = 1;
+                break;
+
+              case 'iron-addict-3months':
+                // 3개월간 운동 일수 계산
+                const threeMonthsAgo = new Date();
+                threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+                const threeMonthWorkouts = allWorkouts.filter(w =>
+                  new Date(w.date) >= threeMonthsAgo
+                );
+                const uniqueWorkoutDays = new Set(
+                  threeMonthWorkouts.map(w => {
+                    const d = new Date(w.date);
+                    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+                  })
+                );
+                progress = uniqueWorkoutDays.size;
+                break;
+
+              case 'tomorrow-cant-wakeup':
+                // 2시간 이상 운동 (이미 time-120과 동일한 로직)
+                progress = workout.totalDuration;
+                break;
             }
 
             // 업적 달성 확인

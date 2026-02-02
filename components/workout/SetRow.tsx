@@ -20,9 +20,11 @@ interface SetRowProps {
   exerciseId: string;
   exerciseType?: ExerciseType; // 운동 타입 정보 추가
   onSetComplete?: (weight?: number, reps?: number) => void;
+  /** 운동 시작 후에만 세트 완료 가능 (false면 탭 시 알림) */
+  canCompleteSet?: boolean;
 }
 
-export default function SetRow({ set, setNumber, exerciseId, exerciseType, onSetComplete }: SetRowProps) {
+export default function SetRow({ set, setNumber, exerciseId, exerciseType, onSetComplete, canCompleteSet = true }: SetRowProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { updateSet, removeSet, toggleSetComplete } = useWorkoutStore();
@@ -70,6 +72,14 @@ export default function SetRow({ set, setNumber, exerciseId, exerciseType, onSet
   });
 
   const handleToggleComplete = () => {
+    if (!canCompleteSet) {
+      Alert.alert(
+        '운동을 시작해주세요',
+        '우측 하단 "운동 시작" 버튼을 눌러 운동을 시작한 후 세트 완료를 할 수 있습니다.',
+        [{ text: '확인' }]
+      );
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleSetComplete(exerciseId, set.id);
 

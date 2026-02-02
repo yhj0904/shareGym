@@ -2,9 +2,12 @@
 export interface User {
   id: string;
   username: string;
+  email?: string;
   profileImage?: string;
+  bio?: string;
   gym?: Gym;
   badges: Badge[];
+  displayBadges?: string[]; // 프로필에 표시할 뱃지 이모지 (최대 3개)
   following: string[];
   followers: string[];
   stats: UserStats;
@@ -291,16 +294,61 @@ export interface Badge {
   maxProgress?: number;
 }
 
-// 피드 아이템
-export interface FeedItem {
+// 그룹 공유 운동 카드 (2분할)
+export interface SharedWorkoutCard {
   id: string;
-  userId: string;
-  user?: User;
-  type: 'workout' | 'achievement' | 'routine_share';
-  content: WorkoutSession | Achievement | Routine;
-  likes: string[];
-  comments: Comment[];
+  groupId: string;
+  createdBy: string; // 첫 번째 카드를 만든 사용자
+  completedBy?: string; // 두 번째 카드를 완성한 사용자 (협업 모드일 때)
+
+  // 카드 타입: solo(개인), collaborative(협업)
+  type: 'solo' | 'collaborative';
+
+  // 레이아웃 설정
+  splitType: 'horizontal' | 'vertical'; // 상하 또는 좌우 분할
+  splitPosition: 'top' | 'bottom' | 'left' | 'right'; // 첫 번째 사용자가 선택한 위치
+
+  // 첫 번째 참여자 (카드 생성자)
+  firstHalf: {
+    userId: string;
+    username?: string;
+    userProfileImage?: string;
+    workoutId: string;
+    workout?: WorkoutSession;
+    imageData?: string; // base64 또는 URL
+    createdAt: Date;
+  };
+
+  // 두 번째 참여자 (협업 참여자)
+  secondHalf?: {
+    userId: string;
+    username?: string;
+    userProfileImage?: string;
+    workoutId: string;
+    workout?: WorkoutSession;
+    imageData?: string; // base64 또는 URL
+    joinedAt?: Date; // 참여 시각
+    createdAt: Date;
+  };
+
+  // 스타일 설정
+  style?: 'minimal' | 'gradient' | 'dark' | 'colorful' | 'ocean' | 'sunset' | 'forest' | 'neon';
+  customOptions?: CardCustomOptions;
+
+  // 상태 관리
+  status: 'waiting' | 'in_progress' | 'completed' | 'expired'; // waiting: 대기중, in_progress: 진행중, completed: 완성, expired: 만료
+
+  // 시간 관리
+  expiresAt: Date; // 24시간 후 만료
   createdAt: Date;
+  updatedAt?: Date;
+  completedAt?: Date; // 카드 완성 시각
+
+  // 메타데이터
+  tags?: string[]; // 해시태그
+  isPublic?: boolean; // 피드 공개 여부
+  viewCount?: number; // 조회수
+  likeCount?: number; // 좋아요 수
 }
 
 export interface Achievement {
@@ -310,10 +358,46 @@ export interface Achievement {
   message: string;
 }
 
+// 피드 관련 타입
+export interface FeedItem {
+  id: string;
+  type: 'workout' | 'group' | 'achievement' | 'challenge';
+  userId: string;
+  username?: string;
+  userProfileImage?: string;
+  userBadges?: string[]; // 유저의 대표 뱃지
+
+  // 운동 관련 데이터
+  workoutSessionId?: string;
+  workoutSnapshot?: WorkoutSession; // 운동 데이터 스냅샷
+  cardStyle?: string; // 운동 카드 스타일
+  cardImageUrl?: string; // 생성된 운동 카드 이미지
+
+  // 콘텐츠
+  content?: string;
+  images?: string[];
+
+  // 상호작용
+  likes: string[];
+  comments: Comment[];
+  isLiked?: boolean; // 현재 사용자가 좋아요 했는지
+
+  // 메타 정보
+  groupId?: string; // 그룹 포스트인 경우
+  groupName?: string;
+  visibility: 'public' | 'followers' | 'group';
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
 export interface Comment {
   id: string;
   userId: string;
-  user?: User;
-  text: string;
+  username: string;
+  userProfileImage?: string;
+  content: string;
   createdAt: Date;
 }
+
+// Feed 필터 타입
+export type FeedFilter = 'all' | 'following' | 'groups' | 'nearby';

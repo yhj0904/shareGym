@@ -60,7 +60,7 @@ export default function SignupScreen() {
     try {
       await signUp(email, password, username);
       Alert.alert('성공', '회원가입이 완료되었습니다!', [
-        { text: '확인', onPress: () => router.replace('/(tabs)/') },
+        { text: '확인', onPress: () => router.replace('/(tabs)') },
       ]);
     } catch (error: any) {
       Alert.alert('회원가입 실패', error.message);

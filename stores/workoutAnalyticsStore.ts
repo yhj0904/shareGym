@@ -29,7 +29,8 @@ type CheerTrigger =
   | 'struggling' // 힘들어하는 상황
   | 'comeback' // 오랜만에 운동
   | 'consistency' // 꾸준한 운동
-  | 'volumeIncrease'; // 볼륨 증가
+  | 'volumeIncrease' // 볼륨 증가
+  | 'regularSet'; // 일반 세트 완료
 
 // 개인화된 응원 메시지
 interface PersonalizedCheer {
@@ -90,9 +91,9 @@ const PERSONALIZED_CHEER_TEMPLATES = {
     { emoji: '🎯', message: '목표를 향해 첫 발걸음!' },
   ],
   lastSet: [
-    { emoji: '🔥', message: '마지막 세트! 끝까지 불태워요!' },
-    { emoji: '💯', message: '라스트! 여기서 진짜가 나타나요!' },
-    { emoji: '🏆', message: '마지막까지 집중! 거의 다 왔어요!' },
+    { emoji: '🔥', message: '마지막 세트 완료! 완벽하게 마무리했어요!' },
+    { emoji: '💯', message: '라스트 완료! 오늘도 수고했어요!' },
+    { emoji: '🏆', message: '마지막까지 해냈어요! 멋진 마무리!' },
   ],
   hardSet: [
     { emoji: '💪', message: '3세트가 진짜죠! 힘내세요!' },
@@ -133,6 +134,14 @@ const PERSONALIZED_CHEER_TEMPLATES = {
     { emoji: '📊', message: '오늘 볼륨 {percent}% 증가! 성장 중!' },
     { emoji: '💪', message: '운동량이 늘었어요! 체력이 좋아지고 있어요!' },
     { emoji: '🚀', message: '볼륨 신기록! 확실히 강해지고 있네요!' },
+  ],
+  regularSet: [
+    { emoji: '💪', message: '좋아요! 계속 이어가세요!' },
+    { emoji: '👍', message: '완료! 다음 세트도 파이팅!' },
+    { emoji: '✅', message: '잘하고 있어요! 꾸준히 해봐요!' },
+    { emoji: '💯', message: '세트 완료! 호흡 가다듬고 계속!' },
+    { emoji: '🔥', message: '좋은 폼이에요! 계속 집중!' },
+    { emoji: '⚡', message: '나이스! 리듬을 유지하세요!' },
   ],
 };
 
@@ -321,7 +330,18 @@ const useWorkoutAnalyticsStore = create<WorkoutAnalyticsStore>()(
           return cheers[0];
         }
 
-        return null;
+        // 특별한 조건이 없는 일반 세트의 경우 기본 응원 메시지 반환
+        const regularTemplates = PERSONALIZED_CHEER_TEMPLATES.regularSet;
+        const randomIndex = Math.floor(Math.random() * regularTemplates.length);
+        const template = regularTemplates[randomIndex];
+
+        return {
+          trigger: 'regularSet',
+          message: template.message,
+          emoji: template.emoji,
+          priority: 1,
+          context: { exercise: exerciseName, setNumber: currentSetIndex + 1 },
+        };
       },
 
       // 휴식 시간 예측

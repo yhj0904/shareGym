@@ -125,6 +125,10 @@ export default function SmartCheerNotification({
         return '#4ECDC4'; // 청록
       case 'lastSet':
         return '#FF8C42'; // 오렌지
+      case 'firstSet':
+        return '#4CAF50'; // 그린
+      case 'regularSet':
+        return colors.tint; // 기본 테마 색상
       default:
         return colors.card;
     }
@@ -145,14 +149,16 @@ export default function SmartCheerNotification({
         return 'flag';
       case 'firstSet':
         return 'play';
+      case 'regularSet':
+        return 'checkmark-circle';
       default:
         return 'fitness';
     }
   };
 
-  // SafeArea를 고려한 위치 계산
+  // SafeArea를 고려한 위치 계산 (더 명확한 위치 설정)
   const positionStyle = position === 'top'
-    ? { top: insets.top + 20 } // SafeArea + 여백
+    ? { top: Math.max(40, insets.top + 40) } // 헤더 바로 아래에 표시 (위치 조정)
     : position === 'bottom'
     ? { bottom: insets.bottom + 100 }
     : { top: '45%' };
@@ -256,6 +262,7 @@ function getTriggerLabel(trigger: string): string {
     comeback: '컴백',
     consistency: '꾸준함',
     volumeIncrease: '볼륨 증가',
+    regularSet: '세트 완료',
   };
   return labels[trigger] || '운동 중';
 }
@@ -275,9 +282,9 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 10,
+    elevation: 9999, // Android에서 더 높은 우선순위 (값 증가)
     overflow: 'hidden',
-    zIndex: 9999, // 최상단에 표시
+    zIndex: 9999999, // 더 높은 z-index (값 증가)
   },
   content: {
     flexDirection: 'row',

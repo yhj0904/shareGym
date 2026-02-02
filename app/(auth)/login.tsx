@@ -44,7 +44,7 @@ export default function LoginScreen() {
 
     try {
       await signIn(email, password);
-      router.replace('/(tabs)/');
+      router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('로그인 실패', error.message);
     }

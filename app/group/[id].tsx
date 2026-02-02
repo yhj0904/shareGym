@@ -35,6 +35,7 @@ export default function GroupDetailScreen() {
   const {
     currentGroup,
     groupPosts,
+    getGroupPosts,
     fetchGroupPosts,
     shareToGroup,
     likeGroupPost,
@@ -42,6 +43,8 @@ export default function GroupDetailScreen() {
     refreshInviteCode,
     leaveGroup,
   } = useGroupStore();
+
+  const postsForGroup = id ? getGroupPosts(id) : [];
   const { lastWorkout } = useWorkoutStore();
   const {
     liveWorkouts,
@@ -85,6 +88,7 @@ export default function GroupDetailScreen() {
         groupId: id,
         userId: user.id,
         workoutId: lastWorkout.id,
+        workoutSnapshot: lastWorkout,
         content: shareContent.trim() || '오늘의 운동 완료! 💪',
         likes: [],
         comments: [],
@@ -274,7 +278,7 @@ export default function GroupDetailScreen() {
       </View>
 
       <FlatList
-        data={groupPosts}
+        data={postsForGroup}
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
         ListHeaderComponent={

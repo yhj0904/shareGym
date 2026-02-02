@@ -7,7 +7,7 @@ export interface Achievement {
   name: string;
   description: string;
   icon: string;
-  category: 'workout' | 'strength' | 'consistency' | 'social' | 'special';
+  category: 'workout' | 'strength' | 'consistency' | 'social' | 'special' | 'muscle' | 'comeback';
   requiredValue: number;
   unit?: string;
   points: number;
@@ -338,6 +338,154 @@ export const achievements: Achievement[] = [
     requiredValue: 1,
     points: 50,
   },
+
+  // 복귀 관련 뱃지
+  {
+    id: 'comeback-week',
+    name: '운동하긴함',
+    description: '일주일만에 복귀',
+    icon: '😅',
+    category: 'comeback',
+    requiredValue: 7,
+    unit: '일',
+    points: 10,
+  },
+  {
+    id: 'comeback-2weeks',
+    name: '겨우복귀함',
+    description: '2주만에 복귀',
+    icon: '😓',
+    category: 'comeback',
+    requiredValue: 14,
+    unit: '일',
+    points: 15,
+  },
+
+  // 근육별 마스터 뱃지
+  {
+    id: 'shoulder-master',
+    name: '어깨마스터',
+    description: '어깨 운동 100세트 달성',
+    icon: '🎯',
+    category: 'muscle',
+    requiredValue: 100,
+    unit: '세트',
+    points: 100,
+    tier: 'gold',
+  },
+  {
+    id: 'back-master',
+    name: '등마스터',
+    description: '등 운동 100세트 달성',
+    icon: '🦅',
+    category: 'muscle',
+    requiredValue: 100,
+    unit: '세트',
+    points: 100,
+    tier: 'gold',
+  },
+  {
+    id: 'leg-master',
+    name: '하체마스터',
+    description: '하체 운동 100세트 달성',
+    icon: '🦵',
+    category: 'muscle',
+    requiredValue: 100,
+    unit: '세트',
+    points: 100,
+    tier: 'gold',
+  },
+  {
+    id: 'glute-master',
+    name: '힙업마스터',
+    description: '힙 운동 100세트 달성',
+    icon: '🍑',
+    category: 'muscle',
+    requiredValue: 100,
+    unit: '세트',
+    points: 100,
+    tier: 'gold',
+  },
+  {
+    id: 'chest-master',
+    name: '가슴마스터',
+    description: '가슴 운동 100세트 달성',
+    icon: '💎',
+    category: 'muscle',
+    requiredValue: 100,
+    unit: '세트',
+    points: 100,
+    tier: 'gold',
+  },
+  {
+    id: 'core-training',
+    name: '코어단련중',
+    description: '복근/코어 운동 100세트 달성',
+    icon: '🎯',
+    category: 'muscle',
+    requiredValue: 100,
+    unit: '세트',
+    points: 100,
+    tier: 'gold',
+  },
+
+  // 주간 출석 관련
+  {
+    id: 'week-7days',
+    name: '주 7회 오운완',
+    description: '일주일 매일 운동 달성',
+    icon: '💯',
+    category: 'consistency',
+    requiredValue: 7,
+    unit: '일',
+    points: 100,
+    tier: 'platinum',
+  },
+  {
+    id: 'week-4days',
+    name: '주 4회 오운완',
+    description: '일주일에 4회 이상 운동',
+    icon: '✅',
+    category: 'consistency',
+    requiredValue: 4,
+    unit: '일',
+    points: 50,
+    tier: 'silver',
+  },
+
+  // 추가 특별 뱃지
+  {
+    id: 'iron-beginner',
+    name: '쇠맛입문자',
+    description: '첫 웨이트 운동 완료',
+    icon: '🏋️‍♀️',
+    category: 'special',
+    requiredValue: 1,
+    unit: '회',
+    points: 20,
+  },
+  {
+    id: 'iron-addict-3months',
+    name: '쇠맛중독자',
+    description: '3개월 이상 꾸준히 운동',
+    icon: '💉',
+    category: 'special',
+    requiredValue: 90,
+    unit: '일',
+    points: 200,
+    tier: 'gold',
+  },
+  {
+    id: 'tomorrow-cant-wakeup',
+    name: '내일 못 일어남',
+    description: '한 번에 2시간 이상 운동',
+    icon: '😵',
+    category: 'special',
+    requiredValue: 7200,
+    unit: '초',
+    points: 50,
+    tier: 'silver',
+  },
 ];
 
 // 업적 카테고리별 정보
@@ -345,6 +493,8 @@ export const achievementCategories = [
   { id: 'workout', name: '운동', icon: '💪', color: '#FF6B6B' },
   { id: 'strength', name: '근력', icon: '🏋️', color: '#4ECDC4' },
   { id: 'consistency', name: '꾸준함', icon: '📅', color: '#45B7D1' },
+  { id: 'muscle', name: '부위별', icon: '🎯', color: '#9B59B6' },
+  { id: 'comeback', name: '복귀', icon: '🔄', color: '#E17055' },
   { id: 'social', name: '소셜', icon: '👥', color: '#96CEB4' },
   { id: 'special', name: '특별', icon: '⭐', color: '#FFEAA7' },
 ];

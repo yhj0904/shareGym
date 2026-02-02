@@ -28,5 +28,5 @@ export default function Index() {
 
   // 항상 대시보드(메인 탭)로 직접 이동
   // 로그인 여부와 관계없이 대시보드에서 시작
-  return <Redirect href="/(tabs)/" />;
+  return <Redirect href="/(tabs)" />;
 }

@@ -108,17 +108,52 @@ export default function ProfileScreen() {
         paddingTop: insets.top,
         borderBottomColor: colorScheme === 'dark' ? '#333' : '#eee', // 다크모드 대응
       }]}>
+        {/* 설정 버튼 */}
+        <Pressable
+          style={[styles.settingsButton, { top: insets.top + 10 }]}
+          onPress={() => router.push('/settings')}
+        >
+          <Ionicons name="settings-outline" size={24} color={colors.text} />
+        </Pressable>
+
         <View style={styles.profileSection}>
           <View style={[styles.avatar, {
             backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5', // 다크모드 대응
           }]}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={styles.avatarLogo}
-              resizeMode="contain"
-            />
+            {user?.profileImage ? (
+              <Image
+                source={{ uri: user.profileImage }}
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={require('@/assets/images/logo.png')}
+                style={styles.avatarLogo}
+                resizeMode="contain"
+              />
+            )}
           </View>
-          <ThemedText type="title">{user?.username || '사용자'}</ThemedText>
+
+          {/* 닉네임과 뱃지 */}
+          <View style={styles.nameContainer}>
+            <ThemedText type="title">{user?.username || '사용자'}</ThemedText>
+            {user?.displayBadges && user.displayBadges.length > 0 && (
+              <View style={styles.displayBadges}>
+                {user.displayBadges.map((badge, index) => (
+                  <ThemedText key={index} style={styles.displayBadgeIcon}>
+                    {badge}
+                  </ThemedText>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* 소개글 */}
+          {user?.bio && (
+            <ThemedText style={styles.bio}>{user.bio}</ThemedText>
+          )}
+
           <ThemedText style={styles.username}>@{user?.username || 'user'}</ThemedText>
         </View>
       </ThemedView>
@@ -309,7 +344,7 @@ export default function ProfileScreen() {
 
           {/* 업적 그리드 */}
           <View style={styles.achievementGrid}>
-            {filteredAchievements.slice(0, 6).map(achievement => (
+            {filteredAchievements.slice(0, 12).map(achievement => (
               <AchievementBadge
                 key={achievement.id}
                 achievement={achievement}
@@ -325,7 +360,7 @@ export default function ProfileScreen() {
             ))}
           </View>
 
-          {filteredAchievements.length > 6 && (
+          {filteredAchievements.length > 12 && (
             <Pressable
               style={styles.viewAllButton}
               onPress={() => router.push('/achievements')}
@@ -354,11 +389,6 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </Pressable>
 
-          <Pressable style={styles.menuItem}>
-            <Ionicons name="settings-outline" size={24} color={colors.text} />
-            <ThemedText style={styles.menuText}>설정</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
-          </Pressable>
 
           <Pressable style={styles.menuItem}>
             <Ionicons name="bookmark-outline" size={24} color={colors.text} />
@@ -405,9 +435,17 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     borderBottomWidth: 1,
     // borderBottomColor는 인라인으로 동적 적용 (다크모드 대응)
+    position: 'relative',
+  },
+  settingsButton: {
+    position: 'absolute',
+    right: 20,
+    padding: 10,
+    zIndex: 1,
   },
   profileSection: {
     alignItems: 'center',
+    paddingTop: 20,
   },
   avatar: {
     width: 100,
@@ -417,10 +455,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 15,
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarLogo: {
     width: 70,
     height: 70,
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  displayBadges: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  displayBadgeIcon: {
+    fontSize: 22,
+  },
+  bio: {
+    marginTop: 8,
+    fontSize: 14,
+    opacity: 0.8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
   username: {
     marginTop: 5,
@@ -516,6 +578,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    paddingHorizontal: 0,
+    marginTop: 10,
   },
   viewAllButton: {
     marginTop: 15,

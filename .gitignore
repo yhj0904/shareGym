@@ -201,3 +201,9 @@ xcuserdata/
 .env.production.local
 .env.development.local
 .env.test.local
+
+AI_AGENT_DESIGN.md
+
+CLAUDE.md
+/lib/api/README.md
+.claude/settings.local.json

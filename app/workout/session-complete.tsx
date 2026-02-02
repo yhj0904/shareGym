@@ -7,6 +7,7 @@ import {
   Share,
   Modal,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
@@ -16,6 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import useWorkoutStore from '@/stores/workoutStore';
+import useGroupStore from '@/stores/groupStore';
+import useAuthStore from '@/stores/authStore';
+import useFeedStore from '@/stores/feedStore';
 import { formatDuration } from '@/utils/time';
 import { exerciseDatabase } from '@/data/exercises';
 
@@ -25,8 +29,30 @@ export default function SessionCompleteScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   // Safe Area Insets - 상단/하단 안전 영역 패딩 설정
   const insets = useSafeAreaInsets();
-  const { lastWorkout } = useWorkoutStore();
+  const { lastWorkout, clearCurrentSession } = useWorkoutStore();
+  const { groups, createSharedCard, fetchUserGroups } = useGroupStore();
+  const { user } = useAuthStore();
+  const { createWorkoutPost } = useFeedStore();
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showFeedShareModal, setShowFeedShareModal] = useState(false);
+  const [feedShareMessage, setFeedShareMessage] = useState('');
+
+  // 운동 완료 화면 진입 시 현재 세션 정리 → 운동 탭에서 '운동 시작' 화면이 보이도록
+  useEffect(() => {
+    clearCurrentSession();
+  }, [clearCurrentSession]);
+  const [showGroupShareModal, setShowGroupShareModal] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [splitType, setSplitType] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [splitPosition, setSplitPosition] = useState<'top' | 'bottom' | 'left' | 'right'>('top');
+  const [cardType, setCardType] = useState<'solo' | 'collaborative'>('solo'); // 카드 타입 추가
+
+  // 그룹 데이터 로드
+  useEffect(() => {
+    if (user) {
+      fetchUserGroups(user.id);
+    }
+  }, [user]);
 
   // 운동 완료 시 자동으로 카드 생성 모달 표시
   useEffect(() => {
@@ -127,8 +153,109 @@ export default function SessionCompleteScreen() {
     setShowCardModal(false);
   };
 
+  // Feed 공유 모달 열기
+  const handleOpenFeedShare = () => {
+    setShowCardModal(false);
+    setShowFeedShareModal(true);
+  };
+
+  // Feed에 운동 공유
+  const handleShareToFeed = async () => {
+    if (!lastWorkout) return;
+
+    try {
+      await createWorkoutPost(
+        lastWorkout,
+        feedShareMessage,
+        'gradient', // 카드 스타일
+        undefined, // 카드 이미지 URL (나중에 구현)
+        'public' // 공개 범위
+      );
+
+      setShowFeedShareModal(false);
+      Alert.alert('공유 완료', '운동 기록이 피드에 공유되었습니다!');
+
+      // 피드 화면으로 이동
+      setTimeout(() => {
+        router.dismissAll();
+        router.replace('/(tabs)');
+      }, 300);
+    } catch (error) {
+      Alert.alert('오류', '피드 공유에 실패했습니다.');
+    }
+  };
+
   const handleDone = () => {
-    router.replace('/(tabs)/');
+    // 모든 모달 닫기 (session-complete와 active-session 모두 닫힘)
+    router.dismissAll();
+    // 짧은 딜레이 후 운동 탭으로 이동 (세션이 초기화되었으므로 운동 시작 화면이 표시됨)
+    setTimeout(() => {
+      router.replace('/(tabs)/workout');
+    }, 300);
+  };
+
+  // 그룹 공유 카드 생성 모달 열기
+  const handleOpenGroupShare = () => {
+    setShowCardModal(false);
+    // 사용자가 속한 그룹이 있는지 확인
+    const userGroups = groups.filter(g => g.members.includes(user?.id || ''));
+    if (userGroups.length === 0) {
+      Alert.alert('그룹 없음', '먼저 그룹에 가입해주세요.');
+      return;
+    }
+    setShowGroupShareModal(true);
+  };
+
+  // 그룹 공유 카드 생성
+  const handleCreateGroupCard = async () => {
+    if (!selectedGroup || !lastWorkout || !user) {
+      Alert.alert('오류', '필요한 정보가 없습니다.');
+      return;
+    }
+
+    try {
+      // 분할 방향에 따른 위치 조정
+      const adjustedPosition = splitType === 'horizontal'
+        ? (splitPosition === 'top' || splitPosition === 'bottom' ? splitPosition : 'top')
+        : (splitPosition === 'left' || splitPosition === 'right' ? splitPosition : 'left');
+
+      await createSharedCard(
+        selectedGroup,
+        user.id,
+        lastWorkout.id,
+        splitType,
+        adjustedPosition,
+        'gradient',
+        undefined, // customOptions
+        cardType // 카드 타입 전달
+      );
+
+      // 모달 먼저 닫기
+      setShowGroupShareModal(false);
+
+      Alert.alert(
+        cardType === 'collaborative' ? '협업 카드 생성 완료' : '공유 카드 생성 완료',
+        cardType === 'collaborative'
+          ? '그룹 멤버가 함께 운동 카드를 완성할 수 있습니다. 24시간 내에 완성되지 않으면 자동으로 삭제됩니다.'
+          : '운동 카드가 그룹에 공유되었습니다.',
+        [
+          {
+            text: '확인',
+            onPress: () => {
+              // 모든 모달 닫기 (운동 완료 모달 포함) → 루트로 복귀
+              router.dismissAll();
+              // 루트에서 그룹 탭으로 완전히 이동 (모달이 아닌 홈 탭으로)
+              setTimeout(() => {
+                router.replace('/(tabs)/groups');
+              }, 300);
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('오류', '공유 카드 생성에 실패했습니다.');
+      console.error(error);
+    }
   };
 
   return (
@@ -283,6 +410,30 @@ export default function SessionCompleteScreen() {
             <ThemedText style={styles.actionButtonText}>운동 카드 만들기</ThemedText>
           </Pressable>
 
+          {/* Feed 공유 버튼 */}
+          <Pressable
+            style={[styles.actionButton, {
+              backgroundColor: colorScheme === 'dark' ? '#4a90e2' : '#4a90e2',
+            }]}
+            onPress={handleOpenFeedShare}
+          >
+            <Ionicons name="newspaper-outline" size={24} color="white" />
+            <ThemedText style={[styles.actionButtonText, { color: 'white' }]}>피드에 공유</ThemedText>
+          </Pressable>
+
+          {/* 그룹 공유 카드 버튼 - 그룹에 속한 경우에만 표시 */}
+          {groups.filter(g => g.members.includes(user?.id || '')).length > 0 && (
+            <Pressable
+              style={[styles.actionButton, {
+                backgroundColor: colorScheme === 'dark' ? '#3a3a3a' : '#f0f0f0', // 다크모드 대응
+              }]}
+              onPress={handleOpenGroupShare}
+            >
+              <Ionicons name="people-outline" size={24} color={colors.text} />
+              <ThemedText style={styles.actionButtonText}>그룹 공유 카드</ThemedText>
+            </Pressable>
+          )}
+
           <Pressable
             style={[styles.actionButton, styles.secondaryButton, {
               backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5', // 다크모드 대응
@@ -358,6 +509,318 @@ export default function SessionCompleteScreen() {
               >
                 <ThemedText style={[styles.modalButtonText, { color: colors.text }]}>
                   건너뛰기
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 그룹 공유 카드 생성 모달 */}
+      <Modal
+        visible={showGroupShareModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowGroupShareModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.groupShareModalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>그룹 공유 카드 만들기</ThemedText>
+              <Pressable onPress={() => setShowGroupShareModal(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+            </View>
+
+            <ThemedText style={styles.modalSubtitle}>
+              그룹 멤버와 함께 2분할 운동 카드를 만들어보세요!
+            </ThemedText>
+
+            {/* 그룹 선택 */}
+            <View style={styles.selectionSection}>
+              <ThemedText style={styles.sectionLabel}>그룹 선택</ThemedText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionList}>
+                {groups
+                  .filter(g => g.members.includes(user?.id || ''))
+                  .map(group => (
+                    <Pressable
+                      key={group.id}
+                      style={[
+                        styles.optionItem,
+                        selectedGroup === group.id && styles.selectedOption,
+                        { borderColor: selectedGroup === group.id ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSelectedGroup(group.id)}
+                    >
+                      <Ionicons
+                        name="people"
+                        size={20}
+                        color={selectedGroup === group.id ? colors.tint : colors.text}
+                      />
+                      <ThemedText style={styles.optionText}>{group.name}</ThemedText>
+                    </Pressable>
+                  ))}
+              </ScrollView>
+            </View>
+
+            {/* 카드 타입 선택 */}
+            <View style={styles.selectionSection}>
+              <ThemedText style={styles.sectionLabel}>카드 타입</ThemedText>
+              <View style={styles.cardTypeRow}>
+                <Pressable
+                  style={[
+                    styles.cardTypeOption,
+                    cardType === 'solo' && styles.selectedCardType,
+                    { borderColor: cardType === 'solo' ? colors.tint : '#ddd' }
+                  ]}
+                  onPress={() => setCardType('solo')}
+                >
+                  <Ionicons
+                    name="person"
+                    size={24}
+                    color={cardType === 'solo' ? colors.tint : colors.text}
+                  />
+                  <ThemedText style={styles.cardTypeText}>혼자 완성하기</ThemedText>
+                  <ThemedText style={styles.cardTypeDescription}>
+                    내 운동 기록만으로 카드를 완성합니다
+                  </ThemedText>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.cardTypeOption,
+                    cardType === 'collaborative' && styles.selectedCardType,
+                    { borderColor: cardType === 'collaborative' ? colors.tint : '#ddd' }
+                  ]}
+                  onPress={() => setCardType('collaborative')}
+                >
+                  <Ionicons
+                    name="people"
+                    size={24}
+                    color={cardType === 'collaborative' ? colors.tint : colors.text}
+                  />
+                  <ThemedText style={styles.cardTypeText}>함께 완성하기</ThemedText>
+                  <ThemedText style={styles.cardTypeDescription}>
+                    그룹원과 함께 2분할 카드를 만듭니다
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* 분할 방향 선택 */}
+            <View style={styles.selectionSection}>
+              <ThemedText style={styles.sectionLabel}>분할 방향</ThemedText>
+              <View style={styles.splitTypeRow}>
+                <Pressable
+                  style={[
+                    styles.splitTypeOption,
+                    splitType === 'horizontal' && styles.selectedSplitType,
+                    { borderColor: splitType === 'horizontal' ? colors.tint : '#ddd' }
+                  ]}
+                  onPress={() => {
+                    setSplitType('horizontal');
+                    setSplitPosition('top');
+                  }}
+                >
+                  <View style={styles.splitPreview}>
+                    <View style={[styles.splitBox, styles.horizontalTop, {
+                      backgroundColor: splitType === 'horizontal' ? colors.tint : '#ddd'
+                    }]} />
+                    <View style={[styles.splitBox, styles.horizontalBottom]} />
+                  </View>
+                  <ThemedText style={styles.splitTypeText}>상하 분할</ThemedText>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.splitTypeOption,
+                    splitType === 'vertical' && styles.selectedSplitType,
+                    { borderColor: splitType === 'vertical' ? colors.tint : '#ddd' }
+                  ]}
+                  onPress={() => {
+                    setSplitType('vertical');
+                    setSplitPosition('left');
+                  }}
+                >
+                  <View style={styles.splitPreview}>
+                    <View style={[styles.splitBox, styles.verticalLeft, {
+                      backgroundColor: splitType === 'vertical' ? colors.tint : '#ddd'
+                    }]} />
+                    <View style={[styles.splitBox, styles.verticalRight]} />
+                  </View>
+                  <ThemedText style={styles.splitTypeText}>좌우 분할</ThemedText>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* 위치 선택 */}
+            <View style={styles.selectionSection}>
+              <ThemedText style={styles.sectionLabel}>내 운동 위치</ThemedText>
+              <View style={styles.positionRow}>
+                {splitType === 'horizontal' ? (
+                  <>
+                    <Pressable
+                      style={[
+                        styles.positionOption,
+                        splitPosition === 'top' && styles.selectedPosition,
+                        { borderColor: splitPosition === 'top' ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSplitPosition('top')}
+                    >
+                      <Ionicons name="arrow-up" size={20} color={colors.text} />
+                      <ThemedText style={styles.positionText}>위쪽</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.positionOption,
+                        splitPosition === 'bottom' && styles.selectedPosition,
+                        { borderColor: splitPosition === 'bottom' ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSplitPosition('bottom')}
+                    >
+                      <Ionicons name="arrow-down" size={20} color={colors.text} />
+                      <ThemedText style={styles.positionText}>아래쪽</ThemedText>
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <Pressable
+                      style={[
+                        styles.positionOption,
+                        splitPosition === 'left' && styles.selectedPosition,
+                        { borderColor: splitPosition === 'left' ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSplitPosition('left')}
+                    >
+                      <Ionicons name="arrow-back" size={20} color={colors.text} />
+                      <ThemedText style={styles.positionText}>왼쪽</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.positionOption,
+                        splitPosition === 'right' && styles.selectedPosition,
+                        { borderColor: splitPosition === 'right' ? colors.tint : '#ddd' }
+                      ]}
+                      onPress={() => setSplitPosition('right')}
+                    >
+                      <Ionicons name="arrow-forward" size={20} color={colors.text} />
+                      <ThemedText style={styles.positionText}>오른쪽</ThemedText>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            </View>
+
+            {/* 액션 버튼 */}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalButton, { backgroundColor: colors.tint }]}
+                onPress={handleCreateGroupCard}
+                disabled={!selectedGroup}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="white" />
+                <ThemedText style={styles.modalButtonText}>공유 카드 생성</ThemedText>
+              </Pressable>
+
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton, {
+                  borderColor: colorScheme === 'dark' ? '#444' : '#ddd',
+                }]}
+                onPress={() => setShowGroupShareModal(false)}
+              >
+                <ThemedText style={[styles.modalButtonText, { color: colors.text }]}>
+                  취소
+                </ThemedText>
+              </Pressable>
+            </View>
+
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.text} />
+              <ThemedText style={styles.infoText}>
+                생성된 공유 카드는 24시간 동안 유효하며,{'\n'}
+                그룹 멤버가 나머지 절반을 완성할 수 있습니다.
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Feed 공유 모달 */}
+      <Modal
+        visible={showFeedShareModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFeedShareModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>피드에 공유하기</ThemedText>
+              <Pressable onPress={() => setShowFeedShareModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+            </View>
+
+            {/* 운동 요약 정보 */}
+            <View style={[styles.summaryCard, { backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5' }]}>
+              <View style={styles.summaryRow}>
+                <Ionicons name="time-outline" size={20} color={colors.tint} />
+                <ThemedText style={styles.summaryText}>
+                  운동 시간: {formatDuration(lastWorkout?.totalDuration || 0)}
+                </ThemedText>
+              </View>
+              <View style={styles.summaryRow}>
+                <Ionicons name="barbell-outline" size={20} color={colors.tint} />
+                <ThemedText style={styles.summaryText}>
+                  총 볼륨: {totalVolume.toLocaleString()}kg
+                </ThemedText>
+              </View>
+              <View style={styles.summaryRow}>
+                <Ionicons name="fitness-outline" size={20} color={colors.tint} />
+                <ThemedText style={styles.summaryText}>
+                  {lastWorkout?.exercises.length}개 운동 · {completedSets}세트
+                </ThemedText>
+              </View>
+            </View>
+
+            {/* 메시지 입력 */}
+            <View style={styles.messageInputContainer}>
+              <ThemedText style={styles.inputLabel}>메시지 (선택)</ThemedText>
+              <TextInput
+                style={[styles.messageInput, {
+                  backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                  color: colors.text,
+                }]}
+                placeholder="오늘의 운동 소감을 적어보세요..."
+                placeholderTextColor="#999"
+                multiline
+                maxLength={200}
+                value={feedShareMessage}
+                onChangeText={setFeedShareMessage}
+              />
+              <ThemedText style={styles.charCount}>
+                {feedShareMessage.length}/200
+              </ThemedText>
+            </View>
+
+            {/* 액션 버튼 */}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalButton, { backgroundColor: colors.tint }]}
+                onPress={handleShareToFeed}
+              >
+                <Ionicons name="send" size={20} color="white" />
+                <ThemedText style={styles.modalButtonText}>피드에 공유</ThemedText>
+              </Pressable>
+
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton, {
+                  borderColor: colorScheme === 'dark' ? '#444' : '#ddd',
+                }]}
+                onPress={() => setShowFeedShareModal(false)}
+              >
+                <ThemedText style={[styles.modalButtonText, { color: colors.text }]}>
+                  취소
                 </ThemedText>
               </Pressable>
             </View>
@@ -546,5 +1009,206 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     // borderColor는 인라인으로 동적 적용 (다크모드 대응)
+  },
+  // 그룹 공유 모달 스타일
+  groupShareModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  closeButton: {
+    padding: 5,
+  },
+  selectionSection: {
+    marginVertical: 15,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+    opacity: 0.8,
+  },
+  optionList: {
+    flexDirection: 'row',
+    maxHeight: 50,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginRight: 10,
+    gap: 8,
+  },
+  selectedOption: {
+    borderWidth: 2,
+  },
+  optionText: {
+    fontSize: 14,
+  },
+  splitTypeRow: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  splitTypeOption: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  selectedSplitType: {
+    borderWidth: 2,
+  },
+  // 카드 타입 선택 스타일
+  cardTypeRow: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  cardTypeOption: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  selectedCardType: {
+    borderWidth: 2,
+  },
+  cardTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  cardTypeDescription: {
+    fontSize: 11,
+    opacity: 0.6,
+    textAlign: 'center',
+    lineHeight: 15,
+  },
+  splitPreview: {
+    width: 60,
+    height: 80,
+    flexDirection: 'row',
+    marginBottom: 8,
+    borderRadius: 5,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  splitBox: {
+    flex: 1,
+  },
+  horizontalTop: {
+    height: '50%',
+    width: '100%',
+  },
+  horizontalBottom: {
+    height: '50%',
+    width: '100%',
+    backgroundColor: '#f0f0f0',
+    position: 'absolute',
+    bottom: 0,
+  },
+  verticalLeft: {
+    width: '50%',
+    height: '100%',
+  },
+  verticalRight: {
+    width: '50%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+  },
+  splitTypeText: {
+    fontSize: 12,
+  },
+  positionRow: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  positionOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  selectedPosition: {
+    borderWidth: 2,
+  },
+  positionText: {
+    fontSize: 14,
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: 'rgba(0, 122, 255, 0.05)',
+    borderRadius: 8,
+    gap: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.8,
+  },
+  // Feed 공유 모달 스타일
+  summaryCard: {
+    padding: 15,
+    borderRadius: 10,
+    marginVertical: 15,
+    gap: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  summaryText: {
+    fontSize: 14,
+  },
+  messageInputContainer: {
+    width: '100%',
+    marginVertical: 15,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    opacity: 0.8,
+  },
+  messageInput: {
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 80,
+    maxHeight: 120,
+    textAlignVertical: 'top',
+  },
+  charCount: {
+    fontSize: 12,
+    opacity: 0.5,
+    textAlign: 'right',
+    marginTop: 5,
   },
 });

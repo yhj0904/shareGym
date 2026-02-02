@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WorkoutSession, Exercise, Set, ExerciseType, Routine } from '@/types';
 import uuid from 'react-native-uuid';
+import { exerciseDatabase } from '@/data/exercises';
+import { isBackendEnabled, saveWorkout, getWorkoutHistory } from '@/lib/api';
 
 interface WorkoutStore {
   // 현재 세션
@@ -25,6 +27,7 @@ interface WorkoutStore {
   startWorkout: () => void; // 실제 운동 시작 (타이머 시작)
   endSession: () => Promise<WorkoutSession | null>;
   cancelSession: () => void;
+  clearCurrentSession: () => void; // 운동 완료 화면 진입 시 세션 정리 (운동 탭이 '운동 시작'으로 보이도록)
 
   // 액션 - 운동 관리
   addExercise: (exerciseType: ExerciseType) => void;
@@ -54,6 +57,9 @@ interface WorkoutStore {
   getTotalVolume: () => number;
   getTotalSets: () => number;
   getCompletedSets: () => number;
+
+  // 백엔드 연동: 서버에서 운동 히스토리 불러오기
+  loadWorkoutHistory: (userId: string) => Promise<void>;
 }
 
 const useWorkoutStore = create<WorkoutStore>()(
@@ -128,6 +134,19 @@ const useWorkoutStore = create<WorkoutStore>()(
         const state = get();
         if (!state.currentSession) return null;
 
+        // 운동이 없거나 완료된 세트가 하나도 없으면 종료 불가
+        if (state.currentSession.exercises.length === 0) {
+          return null; // 운동이 없음
+        }
+
+        const hasCompletedSets = state.currentSession.exercises.some(exercise =>
+          exercise.sets.some(set => set.completed)
+        );
+
+        if (!hasCompletedSets) {
+          return null; // 완료된 세트가 하나도 없음
+        }
+
         const endTime = new Date();
         // 실제 운동 시작 시간을 기준으로 duration 계산
         // sessionStartTime이 없으면 currentSession.startTime 사용 (startWorkout이 호출되지 않은 경우)
@@ -151,6 +170,11 @@ const useWorkoutStore = create<WorkoutStore>()(
           isWorkoutStarted: false,
         });
 
+        // 백엔드 연동: 운동 완료 시 서버에 저장
+        if (isBackendEnabled()) {
+          saveWorkout(completedSession).catch((e) => console.warn('saveWorkout failed', e));
+        }
+
         return completedSession;
       },
 
@@ -162,6 +186,17 @@ const useWorkoutStore = create<WorkoutStore>()(
           activeExerciseIndex: 0,
           restTimerActive: false,
           restTimer: 0,
+          isWorkoutStarted: false,
+        });
+      },
+
+      // 운동 완료 화면 진입 시 호출 - 현재 세션만 비우고 lastWorkout은 유지 (운동 탭에서 '운동 중'이 안 나오도록)
+      clearCurrentSession: () => {
+        set({
+          currentSession: null,
+          sessionStartTime: null,
+          sessionTimer: 0,
+          activeExerciseIndex: 0,
           isWorkoutStarted: false,
         });
       },
@@ -461,6 +496,23 @@ const useWorkoutStore = create<WorkoutStore>()(
           return total + exercise.sets.filter(s => s.completed).length;
         }, 0);
       },
+
+      loadWorkoutHistory: async (userId: string) => {
+        if (!isBackendEnabled()) return;
+        try {
+          const history = await getWorkoutHistory(userId);
+          const revived = (history || []).map((s: any) => ({
+            ...s,
+            date: s.date ? new Date(s.date) : new Date(),
+            startTime: s.startTime ? new Date(s.startTime) : new Date(s.date || Date.now()),
+            endTime: s.endTime ? new Date(s.endTime) : undefined,
+          }));
+          set({ workoutHistory: revived });
+          if (revived.length > 0) set({ lastWorkout: revived[0] });
+        } catch (e) {
+          console.warn('loadWorkoutHistory failed', e);
+        }
+      },
     }),
     {
       name: 'workout-storage',
@@ -468,7 +520,46 @@ const useWorkoutStore = create<WorkoutStore>()(
       partialize: (state) => ({
         lastWorkout: state.lastWorkout,
         workoutHistory: state.workoutHistory,
+        // 현재 진행중인 세션도 저장하여 앱 재시작 시에도 유지
+        currentSession: state.currentSession,
+        activeExerciseIndex: state.activeExerciseIndex,
+        isWorkoutStarted: state.isWorkoutStarted,
+        sessionStartTime: state.sessionStartTime,
       }),
+      onRehydrateStorage: () => (state) => {
+        // 데이터 복원 시 exerciseType 정보 재구성
+        if (state) {
+          // lastWorkout의 exerciseType 복원
+          if (state.lastWorkout) {
+            state.lastWorkout.exercises = state.lastWorkout.exercises.map(exercise => ({
+              ...exercise,
+              exerciseType: exercise.exerciseType ||
+                exerciseDatabase.find(e => e.id === exercise.exerciseTypeId)
+            }));
+          }
+
+          // currentSession의 exerciseType 복원
+          if (state.currentSession) {
+            state.currentSession.exercises = state.currentSession.exercises.map(exercise => ({
+              ...exercise,
+              exerciseType: exercise.exerciseType ||
+                exerciseDatabase.find(e => e.id === exercise.exerciseTypeId)
+            }));
+          }
+
+          // workoutHistory의 exerciseType 복원
+          if (state.workoutHistory) {
+            state.workoutHistory = state.workoutHistory.map(session => ({
+              ...session,
+              exercises: session.exercises.map(exercise => ({
+                ...exercise,
+                exerciseType: exercise.exerciseType ||
+                  exerciseDatabase.find(e => e.id === exercise.exerciseTypeId)
+              }))
+            }));
+          }
+        }
+      },
     }
   )
 );
