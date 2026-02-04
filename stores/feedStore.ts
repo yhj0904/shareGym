@@ -46,6 +46,9 @@ interface FeedStore {
   // 헬퍼 함수
   getUserFeedItems: (userId: string) => FeedItem[];
   getGroupFeedItems: (groupId: string) => FeedItem[];
+
+  /** 로그아웃 시 사용자 데이터 초기화 */
+  clearUserData: () => void;
 }
 
 const useFeedStore = create<FeedStore>(
@@ -73,27 +76,38 @@ const useFeedStore = create<FeedStore>(
         try {
           // 백엔드 연동 여부 확인
           if (isBackendEnabled()) {
-            // 백엔드 API 호출
-            const response = await apiGetFeed(
-              filter,
-              refresh ? undefined : lastCursor,
-              20
-            );
+            try {
+              // 백엔드 API 호출
+              const response = await apiGetFeed(
+                filter,
+                refresh ? undefined : lastCursor,
+                20
+              );
 
-            if (refresh) {
-              set({
-                feedItems: response.items,
-                hasMore: response.hasMore,
-                lastCursor: response.nextCursor,
-              });
-            } else {
-              set(state => ({
-                feedItems: [...state.feedItems, ...response.items],
-                hasMore: response.hasMore,
-                lastCursor: response.nextCursor,
-              }));
+              if (refresh) {
+                set({
+                  feedItems: response.items,
+                  hasMore: response.hasMore,
+                  lastCursor: response.nextCursor,
+                });
+              } else {
+                set(state => ({
+                  feedItems: [...state.feedItems, ...response.items],
+                  hasMore: response.hasMore,
+                  lastCursor: response.nextCursor,
+                }));
+              }
+
+              set({ loading: false, refreshing: false });
+              return;
+            } catch (apiError) {
+              // API 실패 시 로컬 모크 데이터로 fallback
+              console.warn('백엔드 연결 실패, 로컬 데이터 사용:', apiError instanceof Error ? apiError.message : apiError);
+              // fallback to mock data below
             }
-          } else {
+          }
+
+          {
             // Mock 데이터 사용
             await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -147,19 +161,27 @@ const useFeedStore = create<FeedStore>(
 
         try {
           if (isBackendEnabled()) {
-            // 백엔드 API 호출
-            const newFeedItem = await apiCreateFeedWithWorkout(
-              workoutSession,
-              content,
-              cardStyle,
-              cardImageUrl,
-              visibility
-            );
+            try {
+              // 백엔드 API 호출
+              const newFeedItem = await apiCreateFeedWithWorkout(
+                workoutSession,
+                content,
+                cardStyle,
+                cardImageUrl,
+                visibility
+              );
 
-            set(state => ({
-              feedItems: [newFeedItem, ...state.feedItems]
-            }));
-          } else {
+              set(state => ({
+                feedItems: [newFeedItem, ...state.feedItems]
+              }));
+              return;
+            } catch (apiError) {
+              console.warn('백엔드 연결 실패, 로컬 데이터 사용:', apiError instanceof Error ? apiError.message : apiError);
+              // fallback to mock data below
+            }
+          }
+
+          {
             // Mock 데이터 생성
             const newFeedItem: FeedItem = {
               id: uuid.v4() as string,
@@ -196,24 +218,32 @@ const useFeedStore = create<FeedStore>(
 
         try {
           if (isBackendEnabled()) {
-            // 백엔드 API 호출
-            const response = await apiToggleLike(feedId);
+            try {
+              // 백엔드 API 호출
+              const response = await apiToggleLike(feedId);
 
-            set(state => ({
-              feedItems: state.feedItems.map(item => {
-                if (item.id === feedId) {
-                  return {
-                    ...item,
-                    likes: response.liked
-                      ? [...item.likes, user.id]
-                      : item.likes.filter(id => id !== user.id),
-                    isLiked: response.liked,
+              set(state => ({
+                feedItems: state.feedItems.map(item => {
+                  if (item.id === feedId) {
+                    return {
+                      ...item,
+                      likes: response.liked
+                        ? [...item.likes, user.id]
+                        : item.likes.filter(id => id !== user.id),
+                      isLiked: response.liked,
                   };
                 }
                 return item;
               })
             }));
-          } else {
+              return;
+            } catch (apiError) {
+              console.warn('백엔드 연결 실패, 로컬 데이터 사용:', apiError instanceof Error ? apiError.message : apiError);
+              // fallback to mock data below
+            }
+          }
+
+          {
             // Mock 처리
             set(state => ({
               feedItems: state.feedItems.map(item => {
@@ -243,21 +273,29 @@ const useFeedStore = create<FeedStore>(
 
         try {
           if (isBackendEnabled()) {
-            // 백엔드 API 호출
-            const newComment = await apiAddComment(feedId, content);
+            try {
+              // 백엔드 API 호출
+              const newComment = await apiAddComment(feedId, content);
 
-            set(state => ({
-              feedItems: state.feedItems.map(item => {
-                if (item.id === feedId) {
-                  return {
-                    ...item,
-                    comments: [...item.comments, newComment],
-                  };
-                }
-                return item;
-              })
-            }));
-          } else {
+              set(state => ({
+                feedItems: state.feedItems.map(item => {
+                  if (item.id === feedId) {
+                    return {
+                      ...item,
+                      comments: [...item.comments, newComment],
+                    };
+                  }
+                  return item;
+                })
+              }));
+              return;
+            } catch (apiError) {
+              console.warn('백엔드 연결 실패, 로컬 데이터 사용:', apiError instanceof Error ? apiError.message : apiError);
+              // fallback to mock data below
+            }
+          }
+
+          {
             // Mock 처리
             const newComment: Comment = {
               id: uuid.v4() as string,
@@ -289,8 +327,12 @@ const useFeedStore = create<FeedStore>(
       deletePost: async (feedId: string) => {
         try {
           if (isBackendEnabled()) {
-            // 백엔드 API 호출
-            await apiDeleteFeedPost(feedId);
+            try {
+              // 백엔드 API 호출
+              await apiDeleteFeedPost(feedId);
+            } catch (apiError) {
+              console.warn('백엔드 연결 실패, 로컬에서만 삭제:', apiError instanceof Error ? apiError.message : apiError);
+            }
           }
 
           // 로컬 상태 업데이트
@@ -298,7 +340,7 @@ const useFeedStore = create<FeedStore>(
             feedItems: state.feedItems.filter(item => item.id !== feedId)
           }));
         } catch (error) {
-          console.error('Failed to delete post:', error);
+          console.error('Failed to delete post:', error instanceof Error ? error.message : error);
         }
       },
 
@@ -306,8 +348,12 @@ const useFeedStore = create<FeedStore>(
       deleteComment: async (feedId: string, commentId: string) => {
         try {
           if (isBackendEnabled()) {
-            // 백엔드 API 호출
-            await apiDeleteComment(feedId, commentId);
+            try {
+              // 백엔드 API 호출
+              await apiDeleteComment(feedId, commentId);
+            } catch (apiError) {
+              console.warn('백엔드 연결 실패, 로컬에서만 삭제:', apiError instanceof Error ? apiError.message : apiError);
+            }
           }
 
           // 로컬 상태 업데이트
@@ -323,7 +369,7 @@ const useFeedStore = create<FeedStore>(
             })
           }));
         } catch (error) {
-          console.error('Failed to delete comment:', error);
+          console.error('Failed to delete comment:', error instanceof Error ? error.message : error);
         }
       },
 
@@ -335,6 +381,10 @@ const useFeedStore = create<FeedStore>(
       // 그룹별 Feed 조회
       getGroupFeedItems: (groupId: string) => {
         return get().feedItems.filter(item => item.groupId === groupId);
+      },
+
+      clearUserData: () => {
+        set({ feedItems: [], lastCursor: undefined, hasMore: true });
       },
     }),
     {

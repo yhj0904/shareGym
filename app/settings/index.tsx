@@ -110,18 +110,21 @@ export default function SettingsScreen() {
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>알림</ThemedText>
 
-          <View style={styles.menuItem}>
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => router.push('/settings/notifications')}
+          >
             <View style={styles.menuLeft}>
               <Ionicons name="notifications-outline" size={24} color={colors.text} />
-              <ThemedText style={styles.menuText}>푸시 알림</ThemedText>
+              <ThemedText style={styles.menuText}>알림 설정</ThemedText>
             </View>
-            <Switch
-              value={notifications}
-              onValueChange={setNotifications}
-              trackColor={{ false: '#767577', true: colors.tint }}
-              thumbColor={notifications ? '#fff' : '#f4f3f4'}
-            />
-          </View>
+            <View style={styles.menuRight}>
+              <ThemedText style={[styles.menuValue, { opacity: 0.6 }]}>
+                {notifications ? '켜짐' : '꺼짐'}
+              </ThemedText>
+              <Ionicons name="chevron-forward" size={20} color={colors.text} />
+            </View>
+          </Pressable>
         </ThemedView>
 
         {/* 앱 설정 섹션 */}

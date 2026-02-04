@@ -5,6 +5,12 @@ import { WorkoutSession, Exercise, Set, ExerciseType, Routine } from '@/types';
 import uuid from 'react-native-uuid';
 import { exerciseDatabase } from '@/data/exercises';
 import { isBackendEnabled, saveWorkout, getWorkoutHistory } from '@/lib/api';
+import useAuthStore from './authStore';
+
+/** 로그인한 사용자 ID (미로그인 시 'current-user' 폴백) */
+function getCurrentUserId(): string {
+  return useAuthStore.getState().user?.id ?? 'current-user';
+}
 
 interface WorkoutStore {
   // 현재 세션
@@ -60,6 +66,9 @@ interface WorkoutStore {
 
   // 백엔드 연동: 서버에서 운동 히스토리 불러오기
   loadWorkoutHistory: (userId: string) => Promise<void>;
+
+  /** 로그아웃 시 사용자 데이터 초기화 */
+  clearUserData: () => void;
 }
 
 const useWorkoutStore = create<WorkoutStore>()(
@@ -81,7 +90,7 @@ const useWorkoutStore = create<WorkoutStore>()(
         const now = new Date();
         const newSession: WorkoutSession = {
           id: uuid.v4() as string,
-          userId: 'current-user', // TODO: 실제 사용자 ID로 변경
+          userId: getCurrentUserId(),
           date: now,
           startTime: now,
           exercises: [],
@@ -172,7 +181,9 @@ const useWorkoutStore = create<WorkoutStore>()(
 
         // 백엔드 연동: 운동 완료 시 서버에 저장
         if (isBackendEnabled()) {
-          saveWorkout(completedSession).catch((e) => console.warn('saveWorkout failed', e));
+          saveWorkout(completedSession).catch((e) =>
+            console.warn('백엔드 저장 실패, 로컬에만 저장됨:', e instanceof Error ? e.message : e)
+          );
         }
 
         return completedSession;
@@ -407,7 +418,7 @@ const useWorkoutStore = create<WorkoutStore>()(
         const now = new Date();
         const newSession: WorkoutSession = {
           id: uuid.v4() as string,
-          userId: 'current-user',
+          userId: getCurrentUserId(),
           date: now,
           startTime: now,
           exercises: state.lastWorkout.exercises.map(exercise => ({
@@ -512,6 +523,18 @@ const useWorkoutStore = create<WorkoutStore>()(
         } catch (e) {
           console.warn('loadWorkoutHistory failed', e);
         }
+      },
+
+      clearUserData: () => {
+        set({
+          currentSession: null,
+          activeExerciseIndex: 0,
+          isWorkoutStarted: false,
+          sessionStartTime: null,
+          sessionTimer: 0,
+          lastWorkout: null,
+          workoutHistory: [],
+        });
       },
     }),
     {

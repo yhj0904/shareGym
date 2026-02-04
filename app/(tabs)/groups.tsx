@@ -401,9 +401,10 @@ export default function GroupsScreen() {
                             </View>
                           </View>
                         </Pressable>
-                  ))}
-                </View>
-              );
+                      );
+                    })}
+                  </View>
+                );
             })}
 
               {groups.every(group => getPendingCollaborativeCards(group.id, user?.id || '').length === 0) && (

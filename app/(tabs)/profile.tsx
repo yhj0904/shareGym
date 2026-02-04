@@ -6,9 +6,15 @@ import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { clearApiCache } from '@/lib/api';
 import useWorkoutStore from '@/stores/workoutStore';
 import useAuthStore from '@/stores/authStore';
+import useRoutineStore from '@/stores/routineStore';
+import useFeedStore from '@/stores/feedStore';
+import useGroupStore from '@/stores/groupStore';
+import useNotificationStore from '@/stores/notificationStore';
 import useAchievementStore from '@/stores/achievementStore';
+import useWorkoutAnalyticsStore from '@/stores/workoutAnalyticsStore';
 import { router } from 'expo-router';
 import AchievementBadge from '@/components/achievements/AchievementBadge';
 import AchievementUnlockModal from '@/components/achievements/AchievementUnlockModal';
@@ -30,13 +36,21 @@ export default function ProfileScreen() {
     getUnlockedAchievements,
     getNewAchievements,
     markAchievementAsSeen,
-    getAchievementProgress
+    getAchievementProgress,
+    loadAchievements,
   } = useAchievementStore();
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [savedCardStyle, setSavedCardStyle] = useState(null); // 저장된 카드 스타일
+
+  // 백엔드 연동 시 업적 로드
+  useEffect(() => {
+    if (user?.id) {
+      loadAchievements(user.id);
+    }
+  }, [user?.id]);
 
   // 새로운 업적 확인
   useEffect(() => {
@@ -93,6 +107,14 @@ export default function ProfileScreen() {
           text: '로그아웃',
           style: 'destructive',
           onPress: async () => {
+            useWorkoutStore.getState().clearUserData();
+            useRoutineStore.getState().clearUserData();
+            useFeedStore.getState().clearUserData();
+            useGroupStore.getState().clearUserData();
+            useNotificationStore.getState().clearUserData();
+            useAchievementStore.getState().clearUserData();
+            useWorkoutAnalyticsStore.getState().clearUserData();
+            clearApiCache();
             await signOutUser();
             router.replace('/(auth)/login');
           },

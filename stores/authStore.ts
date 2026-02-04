@@ -3,27 +3,21 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@/types';
 import uuid from 'react-native-uuid';
-import { isBackendEnabled, signIn as apiSignIn, signUp as apiSignUp, signOut as apiSignOut, setAuthToken } from '@/lib/api';
-
-// Firebase imports commented out for test mode
-// import {
-//   signInWithEmailAndPassword,
-//   createUserWithEmailAndPassword,
-//   signOut,
-//   updateProfile,
-//   User as FirebaseUser
-// } from 'firebase/auth';
-// import {
-//   doc,
-//   setDoc,
-//   getDoc,
-//   updateDoc,
-//   collection,
-//   query,
-//   where,
-//   getDocs,
-// } from 'firebase/firestore';
-// import { auth, db } from '@/config/firebase';
+import {
+  isBackendEnabled,
+  signIn as apiSignIn,
+  signUp as apiSignUp,
+  signOut as apiSignOut,
+  setAuthToken,
+  setRefreshToken,
+  updateProfile as apiUpdateProfile,
+  uploadProfileImage as apiUploadProfileImage,
+  followUser as apiFollowUser,
+  unfollowUser as apiUnfollowUser,
+  searchUsers as apiSearchUsers,
+  checkUsername as apiCheckUsername,
+  getUserProfile as apiGetUserProfile,
+} from '@/lib/api';
 
 interface AuthStore {
   user: User | null;
@@ -34,6 +28,9 @@ interface AuthStore {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, username: string) => Promise<void>;
   signOutUser: () => Promise<void>;
+
+  /** 401 토큰 만료 시 인증 상태만 초기화 (API 호출 없음) */
+  clearAuthState: () => void;
 
   // 프로필 관리
   updateUserProfile: (updates: Partial<User>) => Promise<void>;
@@ -122,6 +119,7 @@ const useAuthStore = create<AuthStore>()(
           try {
             const res = await apiSignIn({ email, password });
             await setAuthToken(res.token);
+            if (res.refreshToken) await setRefreshToken(res.refreshToken);
             set({ user: res.user, isLoading: false, error: null });
           } catch (error: any) {
             set({ error: error?.message ?? '로그인에 실패했습니다.', isLoading: false });
@@ -149,6 +147,7 @@ const useAuthStore = create<AuthStore>()(
           try {
             const res = await apiSignUp({ email, password, username });
             await setAuthToken(res.token);
+            if (res.refreshToken) await setRefreshToken(res.refreshToken);
             set({ user: res.user, isLoading: false, error: null });
           } catch (error: any) {
             set({ error: error?.message ?? '회원가입에 실패했습니다.', isLoading: false });
@@ -194,33 +193,39 @@ const useAuthStore = create<AuthStore>()(
         set({ user: null, isLoading: false });
       },
 
+      clearAuthState: () => {
+        set({ user: null, error: null });
+      },
+
       updateUserProfile: async (updates: Partial<User>) => {
         const { user } = get();
         if (!user) return;
 
         set({ isLoading: true });
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-
         try {
-          // Update local state
-          const updatedUser = { ...user, ...updates };
+          if (isBackendEnabled()) {
+            let finalUpdates = { ...updates };
+            if (updates.profileImage && (updates.profileImage.startsWith('file://') || updates.profileImage.startsWith('content://'))) {
+              const url = await apiUploadProfileImage(updates.profileImage);
+              finalUpdates = { ...updates, profileImage: url };
+            }
+            const updatedUser = await apiUpdateProfile(finalUpdates);
+            set({ user: updatedUser, isLoading: false, error: null });
+            return;
+          }
 
-          // Update mock database
+          await new Promise(resolve => setTimeout(resolve, 300));
+          const updatedUser = { ...user, ...updates };
           Object.values(mockUsers).forEach(mockUser => {
             if (mockUser.user.id === user.id) {
               mockUser.user = updatedUser;
             }
           });
-
-          set({
-            user: updatedUser,
-            isLoading: false,
-          });
+          set({ user: updatedUser, isLoading: false });
         } catch (error: any) {
           set({
-            error: error.message,
+            error: error?.message ?? '프로필 수정에 실패했습니다.',
             isLoading: false,
           });
           throw error;
@@ -228,7 +233,15 @@ const useAuthStore = create<AuthStore>()(
       },
 
       uploadProfileImage: async (imageUri: string) => {
-        // TODO: Firebase Storage 업로드 구현
+        if (isBackendEnabled()) {
+          const url = await apiUploadProfileImage(imageUri);
+          const { user } = get();
+          if (user) {
+            const updated = await apiUpdateProfile({ profileImage: url });
+            set({ user: updated });
+          }
+          return url;
+        }
         return imageUri;
       },
 
@@ -236,29 +249,20 @@ const useAuthStore = create<AuthStore>()(
         const { user } = get();
         if (!user) return;
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-
         try {
-          // Update current user's following
+          if (isBackendEnabled()) {
+            await apiFollowUser(targetUserId);
+          }
           const updatedFollowing = [...user.following, targetUserId];
-
-          // Update mock database
-          Object.values(mockUsers).forEach(mockUser => {
-            if (mockUser.user.id === user.id) {
-              mockUser.user.following = updatedFollowing;
-            }
-            if (mockUser.user.id === targetUserId) {
-              mockUser.user.followers = [...mockUser.user.followers, user.id];
-            }
-          });
-
-          // Update local state
-          set({
-            user: { ...user, following: updatedFollowing },
-          });
+          if (!isBackendEnabled()) {
+            Object.values(mockUsers).forEach(mockUser => {
+              if (mockUser.user.id === user.id) mockUser.user.following = updatedFollowing;
+              if (mockUser.user.id === targetUserId) mockUser.user.followers = [...mockUser.user.followers, user.id];
+            });
+          }
+          set({ user: { ...user, following: updatedFollowing } });
         } catch (error: any) {
-          set({ error: error.message });
+          set({ error: error?.message });
           throw error;
         }
       },
@@ -267,29 +271,20 @@ const useAuthStore = create<AuthStore>()(
         const { user } = get();
         if (!user) return;
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-
         try {
-          // Update current user's following
+          if (isBackendEnabled()) {
+            await apiUnfollowUser(targetUserId);
+          }
           const updatedFollowing = user.following.filter(id => id !== targetUserId);
-
-          // Update mock database
-          Object.values(mockUsers).forEach(mockUser => {
-            if (mockUser.user.id === user.id) {
-              mockUser.user.following = updatedFollowing;
-            }
-            if (mockUser.user.id === targetUserId) {
-              mockUser.user.followers = mockUser.user.followers.filter(id => id !== user.id);
-            }
-          });
-
-          // Update local state
-          set({
-            user: { ...user, following: updatedFollowing },
-          });
+          if (!isBackendEnabled()) {
+            Object.values(mockUsers).forEach(mockUser => {
+              if (mockUser.user.id === user.id) mockUser.user.following = updatedFollowing;
+              if (mockUser.user.id === targetUserId) mockUser.user.followers = mockUser.user.followers.filter(id => id !== user.id);
+            });
+          }
+          set({ user: { ...user, following: updatedFollowing } });
         } catch (error: any) {
-          set({ error: error.message });
+          set({ error: error?.message });
           throw error;
         }
       },
@@ -298,50 +293,37 @@ const useAuthStore = create<AuthStore>()(
         const { user } = get();
         if (!user) return;
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
+        const mockGym = {
+          id: gymId,
+          name: '테스트 헬스장',
+          location: { latitude: 0, longitude: 0, address: '서울특별시 강남구' },
+          members: [user.id],
+        };
+        const updatedUser = { ...user, gym: mockGym };
 
         try {
-          // Mock gym data
-          const mockGym = {
-            id: gymId,
-            name: '테스트 헬스장',
-            location: '서울특별시 강남구',
-            members: [user.id],
-          };
-
-          // Update user profile
-          const updatedUser = {
-            ...user,
-            gym: mockGym,
-          };
-
-          // Update mock database
+          if (isBackendEnabled()) {
+            const result = await apiUpdateProfile({ gym: updatedUser.gym });
+            set({ user: result });
+            return;
+          }
           Object.values(mockUsers).forEach(mockUser => {
-            if (mockUser.user.id === user.id) {
-              mockUser.user = updatedUser;
-            }
+            if (mockUser.user.id === user.id) mockUser.user = updatedUser;
           });
-
-          set({
-            user: updatedUser,
-          });
+          set({ user: updatedUser });
         } catch (error: any) {
-          set({ error: error.message });
+          set({ error: error?.message });
           throw error;
         }
       },
 
       fetchUserProfile: async (userId: string) => {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 200));
-
         try {
-          // Find user in mock database
-          const foundUser = Object.values(mockUsers).find(
-            mockUser => mockUser.user.id === userId
-          );
-
+          if (isBackendEnabled()) {
+            return await apiGetUserProfile(userId);
+          }
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const foundUser = Object.values(mockUsers).find(mockUser => mockUser.user.id === userId);
           return foundUser ? foundUser.user : null;
         } catch (error) {
           console.error('Error fetching user profile:', error);
@@ -350,18 +332,14 @@ const useAuthStore = create<AuthStore>()(
       },
 
       searchUsers: async (searchQuery: string) => {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 200));
-
         try {
-          // Search users in mock database
-          const users = Object.values(mockUsers)
+          if (isBackendEnabled()) {
+            return await apiSearchUsers(searchQuery);
+          }
+          await new Promise(resolve => setTimeout(resolve, 200));
+          return Object.values(mockUsers)
             .map(mockUser => mockUser.user)
-            .filter(user =>
-              user.username.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-
-          return users;
+            .filter(u => u.username.toLowerCase().includes(searchQuery.toLowerCase()));
         } catch (error) {
           console.error('Error searching users:', error);
           return [];
@@ -369,16 +347,15 @@ const useAuthStore = create<AuthStore>()(
       },
 
       checkUsername: async (username: string) => {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 100));
-
         try {
-          // Check if username exists in mock database
+          if (isBackendEnabled()) {
+            return await apiCheckUsername(username);
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
           const exists = Object.values(mockUsers).some(
             mockUser => mockUser.user.username.toLowerCase() === username.toLowerCase()
           );
-
-          return !exists; // Return true if username is available
+          return !exists;
         } catch (error) {
           console.error('Error checking username:', error);
           return false;

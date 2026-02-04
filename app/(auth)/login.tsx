@@ -19,12 +19,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors, gradientColors } from '@/constants/Colors';
 import useAuthStore from '@/stores/authStore';
+import useNotificationStore from '@/stores/notificationStore';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const { signIn, isLoading } = useAuthStore();
+  const { initializeFCM, registerFCMTokenToBackend } = useNotificationStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,6 +46,11 @@ export default function LoginScreen() {
 
     try {
       await signIn(email, password);
+
+      // 로그인 성공 후 FCM 초기화 및 토큰 등록
+      await initializeFCM();
+      await registerFCMTokenToBackend();
+
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('로그인 실패', error.message);

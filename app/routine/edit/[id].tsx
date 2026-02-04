@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+/**
+ * 루틴 수정 화면
+ * - 기존 루틴 로드 후 이름/운동 목록 편집
+ */
+
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -10,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
@@ -18,16 +23,31 @@ import useRoutineStore from '@/stores/routineStore';
 import { RoutineExercise } from '@/types';
 import { exerciseDatabase } from '@/data/exercises';
 
-export default function CreateRoutineScreen() {
-  // 테마 및 색상 설정
+export default function EditRoutineScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  // Safe Area Insets - 상단/하단 안전 영역 패딩 설정
   const insets = useSafeAreaInsets();
-  const { createRoutine } = useRoutineStore();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { getRoutineById, updateRoutine } = useRoutineStore();
 
   const [routineName, setRoutineName] = useState('');
   const [exercises, setExercises] = useState<RoutineExercise[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const routine = id ? getRoutineById(id) : undefined;
+    if (routine) {
+      setRoutineName(routine.name);
+      setExercises(
+        routine.exercises.map((ex, i) => ({ ...ex, orderIndex: i }))
+      );
+    } else if (id) {
+      Alert.alert('오류', '루틴을 찾을 수 없습니다.', [
+        { text: '확인', onPress: () => router.back() },
+      ]);
+    }
+    setIsLoaded(true);
+  }, [id, getRoutineById]);
 
   const handleAddExercise = () => {
     router.push({
@@ -47,6 +67,7 @@ export default function CreateRoutineScreen() {
   };
 
   const handleSave = async () => {
+    if (!id) return;
     if (!routineName.trim()) {
       Alert.alert('알림', '루틴 이름을 입력해주세요.');
       return;
@@ -57,17 +78,16 @@ export default function CreateRoutineScreen() {
     }
 
     try {
-      await createRoutine(routineName, exercises);
-      Alert.alert('성공', '루틴이 생성되었습니다.', [
+      await updateRoutine(id, { name: routineName, exercises });
+      Alert.alert('성공', '루틴이 수정되었습니다.', [
         { text: '확인', onPress: () => router.back() },
       ]);
     } catch {
-      Alert.alert('오류', '루틴 생성에 실패했습니다.');
+      Alert.alert('오류', '루틴 수정에 실패했습니다.');
     }
   };
 
-  // 운동 추가 콜백 (exercise-select에서 호출됨)
-  React.useEffect(() => {
+  useEffect(() => {
     // @ts-ignore
     global.addRoutineExercise = (exerciseTypeId: string) => {
       const newExercise: RoutineExercise = {
@@ -80,21 +100,27 @@ export default function CreateRoutineScreen() {
       };
       setExercises([...exercises, newExercise]);
     };
-
     return () => {
       // @ts-ignore
       delete global.addRoutineExercise;
     };
   }, [exercises]);
 
+  if (!isLoaded) {
+    return (
+      <ThemedView style={[styles.container, { flex: 1, justifyContent: 'center', alignItems: 'center' }]}>
+        <ThemedText>로딩 중...</ThemedText>
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      {/* 헤더 */}
       <ThemedView style={[styles.header, { paddingTop: 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="close" size={28} color={colors.text} />
+          <Ionicons name="arrow-back" size={28} color={colors.text} />
         </Pressable>
-        <ThemedText type="subtitle">새 루틴 만들기</ThemedText>
+        <ThemedText type="subtitle">루틴 수정</ThemedText>
         <Pressable onPress={handleSave} style={styles.saveButton}>
           <ThemedText style={[styles.saveButtonText, { color: colors.tint }]}>
             저장
@@ -103,7 +129,6 @@ export default function CreateRoutineScreen() {
       </ThemedView>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 루틴 이름 입력 */}
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>루틴 이름</ThemedText>
           <TextInput
@@ -115,7 +140,6 @@ export default function CreateRoutineScreen() {
           />
         </ThemedView>
 
-        {/* 운동 목록 */}
         <ThemedView style={styles.section}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>운동 목록</ThemedText>
@@ -134,7 +158,6 @@ export default function CreateRoutineScreen() {
               const exerciseType = exerciseDatabase.find(
                 e => e.id === exercise.exerciseTypeId
               );
-
               return (
                 <View key={index} style={styles.exerciseCard}>
                   <View style={styles.exerciseHeader}>
@@ -145,89 +168,67 @@ export default function CreateRoutineScreen() {
                       <Ionicons name="trash-outline" size={20} color="#ff4444" />
                     </Pressable>
                   </View>
-
                   <View style={styles.exerciseDetails}>
-                    {/* 세트 수 */}
                     <View style={styles.detailItem}>
                       <ThemedText style={styles.detailLabel}>세트</ThemedText>
                       <View style={styles.stepperContainer}>
                         <Pressable
                           style={styles.stepperButton}
-                          onPress={() => handleUpdateExercise(index, {
-                            sets: Math.max(1, exercise.sets - 1)
-                          })}
+                          onPress={() => handleUpdateExercise(index, { sets: Math.max(1, exercise.sets - 1) })}
                         >
                           <Ionicons name="remove" size={20} color={colors.text} />
                         </Pressable>
                         <ThemedText style={styles.stepperValue}>{exercise.sets}</ThemedText>
                         <Pressable
                           style={styles.stepperButton}
-                          onPress={() => handleUpdateExercise(index, {
-                            sets: exercise.sets + 1
-                          })}
+                          onPress={() => handleUpdateExercise(index, { sets: exercise.sets + 1 })}
                         >
                           <Ionicons name="add" size={20} color={colors.text} />
                         </Pressable>
                       </View>
                     </View>
-
-                    {/* 반복 수 */}
                     <View style={styles.detailItem}>
                       <ThemedText style={styles.detailLabel}>횟수</ThemedText>
                       <View style={styles.stepperContainer}>
                         <Pressable
                           style={styles.stepperButton}
-                          onPress={() => handleUpdateExercise(index, {
-                            reps: Math.max(1, exercise.reps - 1)
-                          })}
+                          onPress={() => handleUpdateExercise(index, { reps: Math.max(1, exercise.reps - 1) })}
                         >
                           <Ionicons name="remove" size={20} color={colors.text} />
                         </Pressable>
                         <ThemedText style={styles.stepperValue}>{exercise.reps}</ThemedText>
                         <Pressable
                           style={styles.stepperButton}
-                          onPress={() => handleUpdateExercise(index, {
-                            reps: exercise.reps + 1
-                          })}
+                          onPress={() => handleUpdateExercise(index, { reps: exercise.reps + 1 })}
                         >
                           <Ionicons name="add" size={20} color={colors.text} />
                         </Pressable>
                       </View>
                     </View>
-
-                    {/* 무게 */}
                     <View style={styles.detailItem}>
                       <ThemedText style={styles.detailLabel}>무게(kg)</ThemedText>
                       <TextInput
                         style={[styles.weightInput, { color: colors.text }]}
                         value={exercise.weight?.toString() || ''}
-                        onChangeText={(text) => handleUpdateExercise(index, {
-                          weight: parseFloat(text) || 0
-                        })}
+                        onChangeText={(text) => handleUpdateExercise(index, { weight: parseFloat(text) || 0 })}
                         keyboardType="numeric"
                         placeholder="0"
                         placeholderTextColor="#999"
                       />
                     </View>
-
-                    {/* 휴식 시간 */}
                     <View style={styles.detailItem}>
                       <ThemedText style={styles.detailLabel}>휴식(초)</ThemedText>
                       <View style={styles.stepperContainer}>
                         <Pressable
                           style={styles.stepperButton}
-                          onPress={() => handleUpdateExercise(index, {
-                            restTime: Math.max(0, exercise.restTime - 30)
-                          })}
+                          onPress={() => handleUpdateExercise(index, { restTime: Math.max(0, exercise.restTime - 30) })}
                         >
                           <Ionicons name="remove" size={20} color={colors.text} />
                         </Pressable>
                         <ThemedText style={styles.stepperValue}>{exercise.restTime}</ThemedText>
                         <Pressable
                           style={styles.stepperButton}
-                          onPress={() => handleUpdateExercise(index, {
-                            restTime: exercise.restTime + 30
-                          })}
+                          onPress={() => handleUpdateExercise(index, { restTime: exercise.restTime + 30 })}
                         >
                           <Ionicons name="add" size={20} color={colors.text} />
                         </Pressable>
@@ -245,9 +246,7 @@ export default function CreateRoutineScreen() {
               onPress={handleAddExercise}
             >
               <Ionicons name="add-circle-outline" size={20} color={colors.tint} />
-              <ThemedText style={[styles.addMoreText, { color: colors.tint }]}>
-                운동 추가
-              </ThemedText>
+              <ThemedText style={[styles.addMoreText, { color: colors.tint }]}>운동 추가</ThemedText>
             </Pressable>
           )}
         </ThemedView>
@@ -257,9 +256,7 @@ export default function CreateRoutineScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -268,41 +265,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  backButton: {
-    padding: 5,
-  },
-  saveButton: {
-    padding: 5,
-  },
-  saveButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  section: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
+  backButton: { padding: 5 },
+  saveButton: { padding: 5 },
+  saveButtonText: { fontSize: 17, fontWeight: '600' },
+  content: { flex: 1 },
+  section: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  input: {
-    fontSize: 16,
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 10 },
+  input: { fontSize: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8 },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -310,11 +285,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     borderRadius: 12,
   },
-  emptyText: {
-    marginTop: 10,
-    fontSize: 14,
-    opacity: 0.6,
-  },
+  emptyText: { marginTop: 10, fontSize: 14, opacity: 0.6 },
   exerciseCard: {
     backgroundColor: 'white',
     borderRadius: 10,
@@ -332,36 +303,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  exerciseDetails: {
-    gap: 12,
-  },
+  exerciseName: { fontSize: 16, fontWeight: '600' },
+  exerciseDetails: { gap: 12 },
   detailItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  detailLabel: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
+  detailLabel: { fontSize: 14, opacity: 0.7 },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
   },
-  stepperButton: {
-    padding: 8,
-  },
-  stepperValue: {
-    paddingHorizontal: 16,
-    fontSize: 16,
-    fontWeight: '500',
-  },
+  stepperButton: { padding: 8 },
+  stepperValue: { paddingHorizontal: 16, fontSize: 16, fontWeight: '500' },
   weightInput: {
     width: 100,
     textAlign: 'center',
@@ -381,8 +338,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     gap: 8,
   },
-  addMoreText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  addMoreText: { fontSize: 14, fontWeight: '500' },
 });

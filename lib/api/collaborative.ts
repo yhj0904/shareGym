@@ -1,15 +1,13 @@
 /**
- * 협업 카드 관련 API
- * 그룹원과 함께 2분할 운동 카드를 만드는 기능
+ * 협업 카드 API - 그룹원과 함께 2분할 운동 카드 생성/관리
+ * - client.api 사용 (apiClient 제거, 중복 통일)
  */
 
-import { apiClient } from './client';
-import { SharedWorkoutCard, WorkoutSession } from '@/types';
+import { api } from './client';
+import type { SharedWorkoutCard, WorkoutSession } from '@/types';
+import { unwrapResponse, unwrapArrayResponse } from './utils';
 
-/**
- * 협업 카드 생성
- * POST /collaborative-cards
- */
+/** 협업 카드 생성 */
 export async function createCollaborativeCard(data: {
   groupId: string;
   userId: string;
@@ -18,208 +16,130 @@ export async function createCollaborativeCard(data: {
   splitType: 'horizontal' | 'vertical';
   splitPosition: 'top' | 'bottom' | 'left' | 'right';
   style?: string;
-  customOptions?: any;
+  customOptions?: unknown;
 }): Promise<SharedWorkoutCard> {
-  const response = await apiClient('/collaborative-cards', {
-    method: 'POST',
-    body: JSON.stringify({
-      ...data,
-      type: 'collaborative',
-      status: 'waiting',
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: '협업 카드 생성 실패' }));
-    throw new Error(error.message || '협업 카드 생성 실패');
-  }
-
-  return response.json();
+  const res = await api.post<SharedWorkoutCard | { data: SharedWorkoutCard }>(
+    '/collaborative-cards',
+    { ...data, type: 'collaborative', status: 'waiting' }
+  );
+  return unwrapResponse(res) ?? (res as SharedWorkoutCard);
 }
 
-/**
- * 협업 카드 참여
- * POST /collaborative-cards/:id/join
- */
+/** 협업 카드 참여 */
 export async function joinCollaborativeCard(
   cardId: string,
   userId: string,
   workoutId: string,
   workout?: WorkoutSession
 ): Promise<SharedWorkoutCard> {
-  const response = await apiClient(`/collaborative-cards/${cardId}/join`, {
-    method: 'POST',
-    body: JSON.stringify({
-      userId,
-      workoutId,
-      workout,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: '협업 카드 참여 실패' }));
-    throw new Error(error.message || '협업 카드 참여 실패');
-  }
-
-  return response.json();
+  const res = await api.post<SharedWorkoutCard | { data: SharedWorkoutCard }>(
+    `/collaborative-cards/${cardId}/join`,
+    { userId, workoutId, workout }
+  );
+  return unwrapResponse(res) ?? (res as SharedWorkoutCard);
 }
 
-/**
- * 그룹의 협업 카드 목록 조회
- * GET /groups/:groupId/collaborative-cards
- */
+/** 그룹의 협업 카드 목록 조회 */
 export async function getGroupCollaborativeCards(
   groupId: string,
   status?: 'waiting' | 'in_progress' | 'completed' | 'expired'
 ): Promise<SharedWorkoutCard[]> {
-  const params = new URLSearchParams();
-  if (status) params.append('status', status);
-
-  const response = await apiClient(`/groups/${groupId}/collaborative-cards?${params}`);
-
-  if (!response.ok) {
-    console.error('Failed to fetch collaborative cards');
-    return [];
-  }
-
-  return response.json();
+  const query = status ? `?status=${status}` : '';
+  const data = await api.get<SharedWorkoutCard[] | { data: SharedWorkoutCard[] }>(
+    `/groups/${groupId}/collaborative-cards${query}`
+  );
+  return unwrapArrayResponse(data);
 }
 
-/**
- * 사용자가 참여 가능한 협업 카드 목록
- * GET /collaborative-cards/available
- */
+/** 사용자가 참여 가능한 협업 카드 목록 */
 export async function getAvailableCollaborativeCards(
   userId: string,
   groupId?: string
 ): Promise<SharedWorkoutCard[]> {
-  const params = new URLSearchParams();
-  params.append('userId', userId);
+  const params = new URLSearchParams({ userId });
   if (groupId) params.append('groupId', groupId);
-
-  const response = await apiClient(`/collaborative-cards/available?${params}`);
-
-  if (!response.ok) {
-    console.error('Failed to fetch available collaborative cards');
-    return [];
-  }
-
-  return response.json();
+  const data = await api.get<SharedWorkoutCard[] | { data: SharedWorkoutCard[] }>(
+    `/collaborative-cards/available?${params}`
+  );
+  return unwrapArrayResponse(data);
 }
 
-/**
- * 내가 참여한 협업 카드 목록
- * GET /collaborative-cards/my-cards
- */
+/** 내가 참여한 협업 카드 목록 */
 export async function getMyCollaborativeCards(
   userId: string,
   groupId?: string
 ): Promise<SharedWorkoutCard[]> {
-  const params = new URLSearchParams();
-  params.append('userId', userId);
+  const params = new URLSearchParams({ userId });
   if (groupId) params.append('groupId', groupId);
-
-  const response = await apiClient(`/collaborative-cards/my-cards?${params}`);
-
-  if (!response.ok) {
-    console.error('Failed to fetch my collaborative cards');
-    return [];
-  }
-
-  return response.json();
+  const data = await api.get<SharedWorkoutCard[] | { data: SharedWorkoutCard[] }>(
+    `/collaborative-cards/my-cards?${params}`
+  );
+  return unwrapArrayResponse(data);
 }
 
-/**
- * 협업 카드 상태 업데이트
- * PATCH /collaborative-cards/:id/status
- */
+/** 협업 카드 상태 업데이트 */
 export async function updateCollaborativeCardStatus(
   cardId: string,
   status: 'waiting' | 'in_progress' | 'completed' | 'expired'
 ): Promise<SharedWorkoutCard> {
-  const response = await apiClient(`/collaborative-cards/${cardId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: '상태 업데이트 실패' }));
-    throw new Error(error.message || '상태 업데이트 실패');
-  }
-
-  return response.json();
+  const res = await api.patch<SharedWorkoutCard | { data: SharedWorkoutCard }>(
+    `/collaborative-cards/${cardId}/status`,
+    { status }
+  );
+  return unwrapResponse(res) ?? (res as SharedWorkoutCard);
 }
 
-/**
- * 협업 카드 취소/삭제
- * DELETE /collaborative-cards/:id
- */
+/** 협업 카드 취소/삭제 */
 export async function cancelCollaborativeCard(cardId: string): Promise<void> {
-  const response = await apiClient(`/collaborative-cards/${cardId}`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: '카드 취소 실패' }));
-    throw new Error(error.message || '카드 취소 실패');
-  }
+  await api.del(`/collaborative-cards/${cardId}`);
 }
 
-/**
- * 만료된 카드 정리 (배치 작업)
- * POST /collaborative-cards/cleanup-expired
- */
+/** 만료된 카드 정리 (배치 작업) */
 export async function cleanupExpiredCards(): Promise<{ cleaned: number }> {
-  const response = await apiClient('/collaborative-cards/cleanup-expired', {
-    method: 'POST',
-  });
-
-  if (!response.ok) {
-    console.error('Failed to cleanup expired cards');
-    return { cleaned: 0 };
-  }
-
-  return response.json();
+  const res = await api.post<{ cleaned: number } | { data: { cleaned: number } }>(
+    '/collaborative-cards/cleanup-expired'
+  );
+  const unwrapped = unwrapResponse(res);
+  return unwrapped ?? (res as { cleaned: number }) ?? { cleaned: 0 };
 }
 
-/**
- * 협업 카드 상세 조회
- * GET /collaborative-cards/:id
- */
+/** 협업 카드 상세 조회 */
 export async function getCollaborativeCard(cardId: string): Promise<SharedWorkoutCard> {
-  const response = await apiClient(`/collaborative-cards/${cardId}`);
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: '카드 조회 실패' }));
-    throw new Error(error.message || '카드 조회 실패');
-  }
-
-  return response.json();
+  const res = await api.get<SharedWorkoutCard | { data: SharedWorkoutCard }>(
+    `/collaborative-cards/${cardId}`
+  );
+  return unwrapResponse(res) ?? (res as SharedWorkoutCard);
 }
 
-/**
- * 협업 카드 통계
- * GET /collaborative-cards/stats
- */
-export async function getCollaborativeCardStats(userId: string): Promise<{
+/** 협업 카드 통계 반환 타입 */
+export interface CollaborativeCardStats {
   totalCreated: number;
   totalCompleted: number;
   totalParticipated: number;
   successRate: number;
   topPartners: Array<{ userId: string; username: string; count: number }>;
-}> {
-  const response = await apiClient(`/collaborative-cards/stats?userId=${userId}`);
+}
 
-  if (!response.ok) {
-    console.error('Failed to fetch collaborative card stats');
-    return {
-      totalCreated: 0,
-      totalCompleted: 0,
-      totalParticipated: 0,
-      successRate: 0,
-      topPartners: [],
-    };
+const emptyStats: CollaborativeCardStats = {
+  totalCreated: 0,
+  totalCompleted: 0,
+  totalParticipated: 0,
+  successRate: 0,
+  topPartners: [],
+};
+
+/** 협업 카드 통계 */
+export async function getCollaborativeCardStats(userId: string): Promise<CollaborativeCardStats> {
+  try {
+    const res = await api.get<CollaborativeCardStats | { data: CollaborativeCardStats }>(
+      `/collaborative-cards/stats?userId=${userId}`
+    );
+    const unwrapped = unwrapResponse(res);
+    if (unwrapped && typeof unwrapped === 'object' && Array.isArray(unwrapped.topPartners)) {
+      return unwrapped as CollaborativeCardStats;
+    }
+    return emptyStats;
+  } catch {
+    return emptyStats;
   }
-
-  return response.json();
 }

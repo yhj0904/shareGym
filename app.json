@@ -14,7 +14,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "쉐어핏이 운동 카드 배경을 위한 사진 촬영을 위해 카메라 접근 권한이 필요합니다.",
-        "NSPhotoLibraryUsageDescription": "쉐어핏이 운동 카드 배경을 위한 사진 선택을 위해 갤러리 접근 권한이 필요합니다."
+        "NSPhotoLibraryUsageDescription": "쉐어핏이 운동 카드 배경을 위한 사진 선택을 위해 갤러리 접근 권한이 필요합니다.",
+        "NSUserNotificationsUsageDescription": "쉐어핏이 운동 기록, 그룹 활동, 응원 메시지 알림을 보내기 위해 알림 권한이 필요합니다."
       }
     },
     "android": {
@@ -44,7 +45,17 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#4CAF50",
+          "defaultChannel": "default",
+          "sounds": []
+        }
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

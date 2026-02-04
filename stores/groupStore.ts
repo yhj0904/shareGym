@@ -9,32 +9,18 @@ import {
   getGroupPosts as apiGetGroupPosts,
   createGroup as apiCreateGroup,
   joinGroup as apiJoinGroup,
+  leaveGroup as apiLeaveGroup,
+  updateGroupInfo as apiUpdateGroupInfo,
   shareToGroup as apiShareToGroup,
   createSharedCard as apiCreateSharedCard,
   completeSharedCard as apiCompleteSharedCard,
-  // 협업 카드 API
+  togglePostLike as apiTogglePostLike,
+  addGroupPostComment as apiAddGroupPostComment,
   createCollaborativeCard as apiCreateCollaborativeCard,
   joinCollaborativeCard as apiJoinCollaborativeCard,
   getGroupCollaborativeCards as apiGetGroupCollaborativeCards,
   updateCollaborativeCardStatus as apiUpdateCardStatus,
 } from '@/lib/api';
-
-// Firebase 기능은 실제 구현 시 활성화
-// import {
-//   collection,
-//   doc,
-//   setDoc,
-//   getDoc,
-//   getDocs,
-//   updateDoc,
-//   deleteDoc,
-//   query,
-//   where,
-//   arrayUnion,
-//   arrayRemove,
-//   serverTimestamp,
-// } from 'firebase/firestore';
-// import { db } from '@/config/firebase';
 
 export interface Group {
   id: string;
@@ -55,6 +41,7 @@ export interface GroupPost {
   id: string;
   groupId: string;
   userId: string;
+  username?: string; // 표시용 (API에서 반환 시 사용)
   workoutId?: string;
   /** 공유 시 저장한 운동 스냅샷 - 카드 뷰에서 공유자 운동 카드 표시용 */
   workoutSnapshot?: WorkoutSession;
@@ -70,6 +57,7 @@ export interface GroupComment {
   userId: string;
   content: string;
   createdAt: Date;
+  username?: string; // 표시용
 }
 
 interface GroupStore {
@@ -135,8 +123,12 @@ interface GroupStore {
   getPostById: (postId: string) => GroupPost | undefined;
   cleanExpiredCards: () => void;
 
+  /** 로그아웃 시 사용자 데이터 초기화 */
+  clearUserData: () => void;
+
   // 유틸리티
   generateInviteCode: () => string;
+  refreshInviteCode: (groupId: string) => Promise<string>;
   updateGroupInfo: (groupId: string, updates: Partial<Group>) => Promise<void>;
 }
 
@@ -251,26 +243,21 @@ const useGroupStore = create<GroupStore>()(
           }));
           await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
-          console.error('Error joining group:', error);
+          console.error('오류: 그룹 가입:', error instanceof Error ? error.message : error);
           throw error;
         }
       },
 
       leaveGroup: async (groupId, userId) => {
         try {
-          // Mock 구현: 그룹에서 사용자 제거
           const group = get().groups.find(g => g.id === groupId);
+          if (!group) throw new Error('그룹을 찾을 수 없습니다');
+          if (group.createdBy === userId) throw new Error('그룹 소유자는 그룹을 떠날 수 없습니다');
 
-          if (!group) {
-            throw new Error('그룹을 찾을 수 없습니다');
+          if (isBackendEnabled()) {
+            await apiLeaveGroup(groupId, userId);
           }
 
-          // 그룹 소유자는 떠날 수 없음
-          if (group.createdBy === userId) {
-            throw new Error('그룹 소유자는 그룹을 떠날 수 없습니다');
-          }
-
-          // 로컬 상태 업데이트
           set((state) => ({
             groups: state.groups.map(g =>
               g.id === groupId
@@ -284,10 +271,11 @@ const useGroupStore = create<GroupStore>()(
             ),
           }));
 
-          // 약간의 지연 추가
-          await new Promise(resolve => setTimeout(resolve, 500));
+          if (!isBackendEnabled()) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         } catch (error) {
-          console.error('Error leaving group:', error);
+          console.error('오류: leaving group:', error);
           throw error;
         }
       },
@@ -309,7 +297,7 @@ const useGroupStore = create<GroupStore>()(
           await new Promise(resolve => setTimeout(resolve, 500));
           set({ groups: userGroups, isLoading: false });
         } catch (error) {
-          console.error('Error fetching groups:', error);
+          console.error('오류: fetching groups:', error);
           set({ isLoading: false });
         }
       },
@@ -348,7 +336,7 @@ const useGroupStore = create<GroupStore>()(
           }));
           await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
-          console.error('Error sharing to group:', error);
+          console.error('오류: sharing to group:', error);
           throw error;
         }
       },
@@ -370,7 +358,7 @@ const useGroupStore = create<GroupStore>()(
           }
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
-          console.error('Error fetching group posts:', error);
+          console.error('오류: fetching group posts:', error);
         }
       },
 
@@ -390,7 +378,9 @@ const useGroupStore = create<GroupStore>()(
 
       togglePostLike: async (postId, userId) => {
         try {
-          // Mock 구현: 좋아요 토글
+          if (isBackendEnabled()) {
+            await apiTogglePostLike(postId, userId);
+          }
           set((state) => ({
             groupPosts: state.groupPosts.map(post => {
               if (post.id === postId) {
@@ -405,18 +395,20 @@ const useGroupStore = create<GroupStore>()(
               return post;
             }),
           }));
-
-          // 약간의 지연 추가
-          await new Promise(resolve => setTimeout(resolve, 200));
+          if (!isBackendEnabled()) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
         } catch (error) {
-          console.error('Error toggling like:', error);
+          console.error('오류: toggling like:', error);
           throw error;
         }
       },
 
       addComment: async (postId, comment) => {
         try {
-          // Mock 구현: 댓글 추가
+          if (isBackendEnabled()) {
+            await apiAddGroupPostComment(postId, comment);
+          }
           set((state) => ({
             groupPosts: state.groupPosts.map(post => {
               if (post.id === postId) {
@@ -428,17 +420,16 @@ const useGroupStore = create<GroupStore>()(
               return post;
             }),
           }));
-
-          // 약간의 지연 추가
-          await new Promise(resolve => setTimeout(resolve, 300));
+          if (!isBackendEnabled()) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
         } catch (error) {
-          console.error('Error adding comment:', error);
+          console.error('오류: adding comment:', error);
           throw error;
         }
       },
 
       generateInviteCode: () => {
-        // 랜덤 초대 코드 생성
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let code = '';
         for (let i = 0; i < 8; i++) {
@@ -447,21 +438,46 @@ const useGroupStore = create<GroupStore>()(
         return code;
       },
 
+      refreshInviteCode: async (groupId) => {
+        const newCode = get().generateInviteCode();
+        await apiUpdateGroupInfo(groupId, { inviteCode: newCode });
+        set((state) => ({
+          groups: state.groups.map((g) =>
+            g.id === groupId ? { ...g, inviteCode: newCode } : g
+          ),
+          currentGroup:
+            state.currentGroup?.id === groupId
+              ? { ...state.currentGroup, inviteCode: newCode }
+              : state.currentGroup,
+        }));
+        return newCode;
+      },
+
       updateGroupInfo: async (groupId, updates) => {
         try {
-          // Mock 구현: 그룹 정보 업데이트
+          if (isBackendEnabled()) {
+            const updated = await apiUpdateGroupInfo(groupId, updates);
+            set((state) => ({
+              groups: state.groups.map(g =>
+                g.id === groupId
+                  ? {
+                      ...g,
+                      ...updated,
+                      createdAt: updated.createdAt instanceof Date ? updated.createdAt : new Date(updated.createdAt),
+                    }
+                  : g
+              ),
+            }));
+            return;
+          }
           set((state) => ({
             groups: state.groups.map(g =>
-              g.id === groupId
-                ? { ...g, ...updates }
-                : g
+              g.id === groupId ? { ...g, ...updates } : g
             ),
           }));
-
-          // 약간의 지연 추가
           await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
-          console.error('Error updating group:', error);
+          console.error('오류: updating group:', error);
           throw error;
         }
       },
@@ -478,9 +494,25 @@ const useGroupStore = create<GroupStore>()(
         type = 'solo' // 기본값은 solo
       ) => {
         try {
-          // 백엔드 연동 시 협업 카드 API 사용
-          if (isBackendEnabled() && type === 'collaborative') {
-            const newCard = await apiCreateCollaborativeCard({
+          // 백엔드 연동 시 API 호출
+          if (isBackendEnabled()) {
+            if (type === 'collaborative') {
+              const newCard = await apiCreateCollaborativeCard({
+                groupId,
+                userId,
+                workoutId,
+                splitType,
+                splitPosition,
+                style,
+                customOptions,
+              });
+              set((state) => ({
+                sharedCards: [...state.sharedCards, newCard],
+              }));
+              return newCard;
+            }
+            // solo: 공유 카드 API 사용
+            const newCard = await apiCreateSharedCard({
               groupId,
               userId,
               workoutId,
@@ -489,13 +521,15 @@ const useGroupStore = create<GroupStore>()(
               style,
               customOptions,
             });
-
-            // 로컬 상태 업데이트
+            const revived = {
+              ...newCard,
+              createdAt: newCard.createdAt instanceof Date ? newCard.createdAt : new Date(newCard.createdAt),
+              expiresAt: newCard.expiresAt instanceof Date ? newCard.expiresAt : new Date(newCard.expiresAt),
+            };
             set((state) => ({
-              sharedCards: [...state.sharedCards, newCard],
+              sharedCards: [...state.sharedCards, revived],
             }));
-
-            return newCard;
+            return revived;
           }
 
           // 모크 구현 (기존 코드)
@@ -531,7 +565,7 @@ const useGroupStore = create<GroupStore>()(
 
           return newCard;
         } catch (error) {
-          console.error('Error creating shared card:', error);
+          console.error('오류: creating shared card:', error);
           throw error;
         }
       },
@@ -550,7 +584,9 @@ const useGroupStore = create<GroupStore>()(
           }
 
           if (card.type === 'solo') {
-            // 단독 카드는 즉시 완성
+            if (isBackendEnabled()) {
+              await apiCompleteSharedCard(cardId, userId, workoutId, imageData);
+            }
             set((state) => ({
               sharedCards: state.sharedCards.map(c =>
                 c.id === cardId
@@ -571,7 +607,7 @@ const useGroupStore = create<GroupStore>()(
           // 약간의 지연 추가
           await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
-          console.error('Error completing shared card:', error);
+          console.error('오류: completing shared card:', error);
           throw error;
         }
       },
@@ -657,7 +693,7 @@ const useGroupStore = create<GroupStore>()(
             }));
           }, 3000);
         } catch (error) {
-          console.error('Error joining collaborative card:', error);
+          console.error('오류: joining collaborative card:', error);
           throw error;
         }
       },
@@ -693,7 +729,7 @@ const useGroupStore = create<GroupStore>()(
             ),
           }));
         } catch (error) {
-          console.error('Error updating card status:', error);
+          console.error('오류: updating card status:', error);
         }
       },
 
@@ -702,20 +738,26 @@ const useGroupStore = create<GroupStore>()(
         try {
           // 백엔드 연동 시 API 사용
           if (isBackendEnabled()) {
-            const cards = await apiGetGroupCollaborativeCards(groupId);
+            try {
+              const cards = await apiGetGroupCollaborativeCards(groupId);
 
-            // 로컬 상태 업데이트
-            set((state) => {
-              const otherCards = state.sharedCards.filter(c => c.groupId !== groupId);
-              return {
-                sharedCards: [...otherCards, ...cards],
-              };
-            });
+              // 로컬 상태 업데이트
+              set((state) => {
+                const otherCards = state.sharedCards.filter(c => c.groupId !== groupId);
+                return {
+                  sharedCards: [...otherCards, ...cards],
+                };
+              });
 
-            return cards;
+              return cards;
+            } catch (apiError) {
+              // API 실패 시 로컬 모크 데이터로 fallback
+              console.warn('Backend API failed, using local data:', apiError instanceof Error ? apiError.message : apiError);
+              // fallback to mock data below
+            }
           }
 
-          // 모크 구현
+          // 모크 구현 (백엔드 비활성화 또는 API 실패 시)
           const cards = get().sharedCards.filter(
             c => c.groupId === groupId && new Date(c.expiresAt) > new Date()
           );
@@ -725,7 +767,7 @@ const useGroupStore = create<GroupStore>()(
 
           return cards;
         } catch (error) {
-          console.error('Error fetching shared cards:', error);
+          console.error('오류: fetching shared cards:', error instanceof Error ? error.message : error);
           return [];
         }
       },
@@ -801,6 +843,15 @@ const useGroupStore = create<GroupStore>()(
             c => new Date(c.expiresAt) > now
           ),
         }));
+      },
+
+      clearUserData: () => {
+        set({
+          groups: [],
+          currentGroup: null,
+          groupPosts: [],
+          sharedCards: [],
+        });
       },
     }),
     {

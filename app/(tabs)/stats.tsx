@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { StyleSheet, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/ThemedView';
@@ -6,7 +6,9 @@ import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import useAuthStore from '@/stores/authStore';
 import useWorkoutStore from '@/stores/workoutStore';
+import useWorkoutAnalyticsStore from '@/stores/workoutAnalyticsStore';
 import SimpleChart from '@/components/stats/SimpleChart';
 import WorkoutCalendar from '@/components/stats/WorkoutCalendar';
 import MuscleChart from '@/components/stats/MuscleChart';
@@ -16,8 +18,14 @@ import { formatDuration } from '@/utils/time';
 export default function StatsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const insets = useSafeAreaInsets(); // Safe area insets 추가
+  const insets = useSafeAreaInsets();
+  const { user } = useAuthStore();
   const { workoutHistory } = useWorkoutStore();
+  const loadAnalytics = useWorkoutAnalyticsStore((s) => s.loadAnalytics);
+
+  useEffect(() => {
+    if (user?.id) loadAnalytics(user.id);
+  }, [user?.id, loadAnalytics]);
 
   // 통계 계산
   const stats = useMemo(() => {

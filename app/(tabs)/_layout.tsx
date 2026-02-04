@@ -1,6 +1,8 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
+import useAuthStore from '@/stores/authStore';
+import useNotificationStore from '@/stores/notificationStore';
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
@@ -9,6 +11,15 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const user = useAuthStore((s) => s.user);
+  const startListening = useNotificationStore((s) => s.startListening);
+
+  useEffect(() => {
+    if (user?.id) {
+      startListening(user.id);
+    }
+    return () => useNotificationStore.getState().stopListening();
+  }, [user?.id, startListening]);
 
   return (
     <Tabs

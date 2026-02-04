@@ -1,19 +1,7 @@
 import { create } from 'zustand';
 import uuid from 'react-native-uuid';
-
-// Firebase 기능은 실제 구현 시 활성화
-// import {
-//   collection,
-//   doc,
-//   setDoc,
-//   updateDoc,
-//   deleteDoc,
-//   onSnapshot,
-//   query,
-//   where,
-//   serverTimestamp,
-// } from 'firebase/firestore';
-// import { db } from '@/config/firebase';
+import { isBackendEnabled, connectSSE } from '@/lib/api';
+import type { SSEConnection } from '@/lib/api/sse';
 
 // 실시간 운동 상태
 export interface LiveWorkoutStatus {
@@ -70,6 +58,7 @@ interface LiveWorkoutStore {
   sentCheers: Cheer[];
   unreadCheersCount: number;
   isListeningToLiveWorkouts: boolean;
+  _sseWorkoutConnection: SSEConnection | null; // SSE 연결 참조 (내부용)
 
   // 내 운동 상태
   myLiveStatus: LiveWorkoutStatus | null;
@@ -84,7 +73,7 @@ interface LiveWorkoutStore {
   markCheersAsRead: () => void;
 
   // 실시간 리스닝
-  startListeningToLiveWorkouts: (groupId?: string) => void;
+  startListeningToLiveWorkouts: (groupId?: string) => void | Promise<void>;
   stopListeningToLiveWorkouts: () => void;
   startListeningToCheers: (userId: string) => void;
   stopListeningToCheers: () => void;
@@ -101,6 +90,7 @@ const useLiveWorkoutStore = create<LiveWorkoutStore>((set, get) => ({
   sentCheers: [],
   unreadCheersCount: 0,
   isListeningToLiveWorkouts: false,
+  _sseWorkoutConnection: null,
   myLiveStatus: null,
 
   // 운동 시작
@@ -190,24 +180,110 @@ const useLiveWorkoutStore = create<LiveWorkoutStore>((set, get) => ({
     set({ unreadCheersCount: 0 });
   },
 
-  // 실시간 운동 상태 리스닝 (로컬 시뮬레이션)
-  startListeningToLiveWorkouts: (groupId) => {
+  // 실시간 운동 상태 리스닝 - 백엔드 SSE 연동
+  startListeningToLiveWorkouts: async (groupId) => {
     if (get().isListeningToLiveWorkouts) return;
 
-    // 실제 구현에서는 WebSocket이나 Firebase Realtime DB 사용
-    // 현재는 로컬 상태만 관리
     set({ isListeningToLiveWorkouts: true });
+
+    if (isBackendEnabled()) {
+      // 백엔드 SSE 엔드포인트 사용
+      const { connectGroupStream, connectFeedStream } = await import('@/lib/api');
+
+      // 그룹이 있으면 그룹 스트림, 없으면 전체 피드 스트림
+      const conn = groupId
+        ? await connectGroupStream(
+            groupId,
+            (data: any) => {
+              // 백엔드에서 받은 운동 상태 업데이트
+              if (data?.type === 'WORKOUT_STATUS' && data?.userId) {
+                const status: LiveWorkoutStatus = {
+                  userId: String(data.userId),
+                  username: data.username || data.userName || String(data.userId),
+                  status: data.status || 'working-out',
+                  currentExercise: data.currentExercise || data.exercise,
+                  startTime: data.startTime ? new Date(data.startTime) : new Date(),
+                  lastUpdateTime: data.lastUpdateTime ? new Date(data.lastUpdateTime) : new Date(),
+                  workoutDuration: data.workoutDuration || data.duration || 0,
+                  completedSets: data.completedSets || data.sets || 0,
+                  groupId: groupId,
+                  cheerCount: data.cheerCount || 0,
+                };
+                const newMap = new Map(get().liveWorkouts);
+                if (data.status === 'idle' || data.status === 'completed') {
+                  newMap.delete(String(data.userId));
+                } else {
+                  newMap.set(String(data.userId), status);
+                }
+                set({ liveWorkouts: newMap });
+              }
+              // 응원 메시지 처리
+              else if (data?.type === 'CHEER' && data?.fromUserId) {
+                const cheer: Cheer = {
+                  id: uuid.v4() as string,
+                  fromUserId: String(data.fromUserId),
+                  fromUsername: data.fromUsername || '',
+                  toUserId: String(data.toUserId),
+                  type: data.cheerType || 'emoji',
+                  content: data.content || '💪',
+                  timestamp: new Date(),
+                };
+                set(state => ({
+                  receivedCheers: [...state.receivedCheers, cheer],
+                  unreadCheersCount: state.unreadCheersCount + 1,
+                }));
+              }
+            },
+            (error) => {
+              console.error('그룹 SSE 연결 실패:', error instanceof Error ? error.message : error);
+            }
+          )
+        : await connectFeedStream(
+            (data: any) => {
+              // 전체 피드 스트림에서 운동 상태 업데이트 처리
+              if (data?.type === 'WORKOUT_STATUS' && data?.userId) {
+                const status: LiveWorkoutStatus = {
+                  userId: String(data.userId),
+                  username: data.username || data.userName || String(data.userId),
+                  status: data.status || 'working-out',
+                  currentExercise: data.currentExercise || data.exercise,
+                  startTime: data.startTime ? new Date(data.startTime) : new Date(),
+                  lastUpdateTime: data.lastUpdateTime ? new Date(data.lastUpdateTime) : new Date(),
+                  workoutDuration: data.workoutDuration || data.duration || 0,
+                  completedSets: data.completedSets || data.sets || 0,
+                  cheerCount: data.cheerCount || 0,
+                };
+                const newMap = new Map(get().liveWorkouts);
+                if (data.status === 'idle' || data.status === 'completed') {
+                  newMap.delete(String(data.userId));
+                } else {
+                  newMap.set(String(data.userId), status);
+                }
+                set({ liveWorkouts: newMap });
+              }
+            },
+            (error) => {
+              console.error('피드 SSE 연결 실패:', error instanceof Error ? error.message : error);
+            }
+          );
+
+      if (conn) set({ _sseWorkoutConnection: conn });
+    }
   },
 
   // 리스닝 중지
   stopListeningToLiveWorkouts: () => {
-    // unsubscribe 호출
+    const conn = get()._sseWorkoutConnection;
+    if (conn) {
+      conn.close();
+      set({ _sseWorkoutConnection: null });
+    }
     set({ isListeningToLiveWorkouts: false });
   },
 
   // 응원 메시지 리스닝 (로컬 시뮬레이션)
   startListeningToCheers: (userId) => {
-    // 실제 구현에서는 WebSocket이나 Firebase Realtime DB 사용
+    // 실제 구현에서는 SSE (Server-Sent Events) 사용
     // 현재는 로컬 상태만 관리
   },
 

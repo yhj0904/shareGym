@@ -344,7 +344,7 @@ export default function WorkoutCardTemplate({
             오늘의 운동
           </Text>
           {workout.exercises
-            .slice(0, customOptions?.maxExercisesToShow || 5)
+            .slice(0, customOptions?.maxExercisesToShow || (workout.exercises.length > 4 ? 3 : 5))
             .map((exercise, index) => {
           const exerciseType = exerciseDatabase.find(e => e.id === exercise.exerciseTypeId);
           const completedSets = exercise.sets.filter(s => s.completed);
@@ -397,7 +397,7 @@ export default function WorkoutCardTemplate({
               </View>
             );
           })}
-          {workout.exercises.length > (customOptions?.maxExercisesToShow || 5) && (
+          {workout.exercises.length > (customOptions?.maxExercisesToShow || (workout.exercises.length > 4 ? 3 : 5)) && (
             <Text style={[
               styles.moreExercises,
               {
@@ -405,7 +405,7 @@ export default function WorkoutCardTemplate({
                 fontSize: styles.moreExercises.fontSize * fontMultiplier
               }
             ]}>
-              +{workout.exercises.length - (customOptions?.maxExercisesToShow || 5)}개 더...
+              +{workout.exercises.length - (customOptions?.maxExercisesToShow || (workout.exercises.length > 4 ? 3 : 5))}개 더...
             </Text>
           )}
         </View>
@@ -482,40 +482,40 @@ export default function WorkoutCardTemplate({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 25, // 패딩 줄임
+    padding: 20, // 패딩을 더 줄임
     justifyContent: 'space-between',
   },
   header: {
-    marginBottom: 15, // 마진 줄임
+    marginBottom: 10, // 마진을 더 줄임
   },
   dateText: {
-    fontSize: 13, // 폰트 크기 줄임
-    marginBottom: 6,
+    fontSize: 12, // 폰트 크기를 더 줄임
+    marginBottom: 4,
   },
   title: {
-    fontSize: 32, // 폰트 크기 줄임
+    fontSize: 28, // 타이틀 폰트 크기를 더 줄임
     fontWeight: 'bold',
   },
   subtitle: {
-    fontSize: 16,
-    marginTop: 4,
+    fontSize: 14,
+    marginTop: 2,
     opacity: 0.8,
   },
   mainStats: {
-    marginVertical: 20, // 마진 줄임
+    marginVertical: 15, // 통계 섹션 마진을 더 줄임
   },
   bigStat: {
     alignItems: 'center',
-    marginBottom: 20, // 마진 줄임
+    marginBottom: 15, // 마진을 더 줄임
   },
   bigStatValue: {
-    fontSize: 42, // 폰트 크기 줄임
+    fontSize: 36, // 큰 통계 값 폰트 크기를 더 줄임
     fontWeight: 'bold',
-    marginTop: 8,
+    marginTop: 6,
   },
   bigStatLabel: {
-    fontSize: 14, // 폰트 크기 줄임
-    marginTop: 4,
+    fontSize: 13, // 라벨 폰트 크기를 줄임
+    marginTop: 2,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -525,56 +525,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 20, // 폰트 크기 줄임
+    fontSize: 18, // 통계 값 폰트 크기를 더 줄임
     fontWeight: '600',
   },
   statLabel: {
-    fontSize: 12, // 폰트 크기 줄임
-    marginTop: 3,
+    fontSize: 11, // 라벨 폰트 크기를 더 줄임
+    marginTop: 2,
   },
   exerciseList: {
     flex: 1,
-    marginVertical: 15, // 마진 줄임
-    maxHeight: 240, // 최대 높이 제한 추가
+    marginVertical: 10, // 운동 리스트 마진을 더 줄임
+    maxHeight: 180, // 최대 높이를 더 제한하여 잘리지 않도록 함
   },
   exerciseTitle: {
-    fontSize: 16, // 폰트 크기 줄임
+    fontSize: 14, // 운동 섹션 타이틀 폰트 크기를 더 줄임
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   exerciseItem: {
-    marginBottom: 10, // 마진 줄임
+    marginBottom: 8, // 운동 아이템 간격을 더 줄임
   },
   exerciseName: {
-    fontSize: 14, // 폰트 크기 줄임
+    fontSize: 13, // 운동 이름 폰트 크기를 더 줄임
     fontWeight: '500',
   },
   exerciseDetail: {
-    fontSize: 12, // 폰트 크기 줄임
-    marginTop: 2,
+    fontSize: 11, // 운동 상세 폰트 크기를 더 줄임
+    marginTop: 1,
   },
   moreExercises: {
-    fontSize: 12, // 폰트 크기 줄임
+    fontSize: 11, // 더보기 텍스트 폰트 크기를 더 줄임
     fontStyle: 'italic',
-    marginTop: 6,
+    marginTop: 4,
   },
   footer: {
     alignItems: 'center',
-    paddingTop: 15, // 패딩 줄임
+    paddingTop: 10, // 푸터 패딩을 더 줄임
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
   logo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
+    gap: 6,
+    marginBottom: 4,
   },
   appName: {
-    fontSize: 18, // 폰트 크기 줄임
+    fontSize: 16, // 앱 이름 폰트 크기를 더 줄임
     fontWeight: 'bold',
   },
   hashtags: {
-    fontSize: 11, // 폰트 크기 줄임
+    fontSize: 10, // 해시태그 폰트 크기를 더 줄임
   },
 });

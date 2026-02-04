@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { WorkoutSession, Exercise, Set } from '@/types';
+import { WorkoutSession, Exercise } from '@/types';
 import { exerciseDatabase } from '@/data/exercises';
+import { isBackendEnabled, getWorkoutAnalytics } from '@/lib/api';
 
 // 운동 패턴 분석을 위한 인터페이스
 interface ExercisePattern {
@@ -81,6 +82,10 @@ interface WorkoutAnalyticsStore {
   // 개인 기록 체크
   checkPersonalRecord: (exerciseId: string, weight: number) => boolean;
   getProgressMessage: (exerciseId: string, weight: number) => string;
+
+  // 백엔드 연동
+  loadAnalytics: (userId: string) => Promise<void>;
+  clearUserData: () => void;
 }
 
 // 맞춤형 응원 메시지 템플릿
@@ -439,6 +444,48 @@ const useWorkoutAnalyticsStore = create<WorkoutAnalyticsStore>()(
         if (!pattern) return true; // 첫 운동은 항상 PR
 
         return weight > pattern.personalRecord;
+      },
+
+      loadAnalytics: async (userId) => {
+        if (!isBackendEnabled()) return;
+        try {
+          const res = await getWorkoutAnalytics(userId);
+          if (res?.exercisePatterns || res?.userStats) {
+            set({
+              exercisePatterns: res.exercisePatterns ?? {},
+              userStats: res.userStats
+                ? {
+                    lastWorkoutDate: res.userStats.lastWorkoutDate
+                      ? new Date(res.userStats.lastWorkoutDate)
+                      : null,
+                    workoutStreak: res.userStats.workoutStreak ?? 0,
+                    totalWorkouts: res.userStats.totalWorkouts ?? 0,
+                    averageWorkoutDuration: res.userStats.averageWorkoutDuration ?? 0,
+                    preferredWorkoutTime: res.userStats.preferredWorkoutTime ?? 'evening',
+                    strongestExercises: res.userStats.strongestExercises ?? [],
+                    weakestExercises: res.userStats.weakestExercises ?? [],
+                  }
+                : get().userStats,
+            });
+          }
+        } catch (e) {
+          console.warn('loadAnalytics failed', e);
+        }
+      },
+
+      clearUserData: () => {
+        set({
+          exercisePatterns: {},
+          userStats: {
+            lastWorkoutDate: null,
+            workoutStreak: 0,
+            totalWorkouts: 0,
+            averageWorkoutDuration: 0,
+            preferredWorkoutTime: 'evening',
+            strongestExercises: [],
+            weakestExercises: [],
+          },
+        });
       },
 
       // 진행 상황 메시지

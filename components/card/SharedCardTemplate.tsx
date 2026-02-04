@@ -132,7 +132,9 @@ export default function SharedCardTemplate({
       return acc;
     }, 0);
 
-    const exerciseList = workout.exercises.slice(0, 3).map(ex => {
+    // 화면 크기에 따라 표시할 운동 개수 동적 조정
+    const maxExercisesToShow = height < 600 ? 2 : 3;
+    const exerciseList = workout.exercises.slice(0, maxExercisesToShow).map(ex => {
       const exerciseType = exerciseDatabase.find(e => e.id === ex.exerciseTypeId);
       return exerciseType?.nameKo || ex.exerciseTypeId;
     });
@@ -144,6 +146,7 @@ export default function SharedCardTemplate({
       totalVolume,
       exerciseList,
       exerciseCount: workout.exercises.length,
+      maxExercisesToShow,
     };
   };
 
@@ -165,50 +168,96 @@ export default function SharedCardTemplate({
 
     if (!stats) return null;
 
+    // 컴팩트 모드 여부 결정 (운동이 많거나 화면이 작을 때)
+    const isCompact = stats.exerciseCount > 3 || height < 600;
+
     return (
       <View style={styles.halfContent}>
-        <View style={styles.userHeader}>
-          <Ionicons name="person-circle-outline" size={24} color={styleConfig.textColor} />
-          <Text style={[styles.userName, { color: styleConfig.textColor }]}>{userName}</Text>
+        <View style={[styles.userHeader, isCompact && styles.compactUserHeader]}>
+          <Ionicons
+            name="person-circle-outline"
+            size={isCompact ? 20 : 24}
+            color={styleConfig.textColor}
+          />
+          <Text style={[
+            styles.userName,
+            { color: styleConfig.textColor },
+            isCompact && styles.compactUserName
+          ]}>
+            {userName}
+          </Text>
         </View>
 
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Ionicons name="time-outline" size={20} color={styleConfig.textColor} />
-            <Text style={[styles.statValue, { color: styleConfig.textColor }]}>
-              {formatDuration(stats.duration)}
-            </Text>
+        <View style={[styles.statsContainer, isCompact && styles.compactStatsContainer]}>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Ionicons name="time-outline" size={isCompact ? 16 : 20} color={styleConfig.textColor} />
+              <Text style={[
+                styles.statValue,
+                { color: styleConfig.textColor },
+                isCompact && styles.compactStatValue
+              ]}>
+                {formatDuration(stats.duration)}
+              </Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <Ionicons name="barbell-outline" size={isCompact ? 16 : 20} color={styleConfig.textColor} />
+              <Text style={[
+                styles.statValue,
+                { color: styleConfig.textColor },
+                isCompact && styles.compactStatValue
+              ]}>
+                {stats.totalVolume.toLocaleString()}kg
+              </Text>
+            </View>
           </View>
 
           <View style={styles.statItem}>
-            <Ionicons name="barbell-outline" size={20} color={styleConfig.textColor} />
-            <Text style={[styles.statValue, { color: styleConfig.textColor }]}>
-              {stats.totalVolume.toLocaleString()}kg
-            </Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Ionicons name="fitness-outline" size={20} color={styleConfig.textColor} />
-            <Text style={[styles.statValue, { color: styleConfig.textColor }]}>
+            <Ionicons name="fitness-outline" size={isCompact ? 16 : 20} color={styleConfig.textColor} />
+            <Text style={[
+              styles.statValue,
+              { color: styleConfig.textColor },
+              isCompact && styles.compactStatValue
+            ]}>
               {stats.completedSets}/{stats.totalSets} 세트
             </Text>
           </View>
         </View>
 
-        <View style={styles.exerciseSection}>
-          <Text style={[styles.exerciseTitle, { color: styleConfig.subTextColor }]}>
+        <View style={[styles.exerciseSection, isCompact && styles.compactExerciseSection]}>
+          <Text style={[
+            styles.exerciseTitle,
+            { color: styleConfig.subTextColor },
+            isCompact && styles.compactExerciseTitle
+          ]}>
             운동 {stats.exerciseCount}개
           </Text>
-          {stats.exerciseList.map((exercise: string, index: number) => (
-            <Text key={index} style={[styles.exerciseName, { color: styleConfig.subTextColor }]}>
-              • {exercise}
-            </Text>
-          ))}
-          {stats.exerciseCount > 3 && (
-            <Text style={[styles.moreExercises, { color: styleConfig.subTextColor }]}>
-              +{stats.exerciseCount - 3}개 더
-            </Text>
-          )}
+          <View style={styles.exerciseList}>
+            {stats.exerciseList.map((exercise: string, index: number) => (
+              <Text
+                key={index}
+                style={[
+                  styles.exerciseName,
+                  { color: styleConfig.subTextColor },
+                  isCompact && styles.compactExerciseName
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                • {exercise}
+              </Text>
+            ))}
+            {stats.exerciseCount > stats.maxExercisesToShow && (
+              <Text style={[
+                styles.moreExercises,
+                { color: styleConfig.subTextColor },
+                isCompact && styles.compactMoreExercises
+              ]}>
+                +{stats.exerciseCount - stats.maxExercisesToShow}개 더
+              </Text>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -351,6 +400,7 @@ const styles = StyleSheet.create({
   halfContent: {
     flex: 1,
     padding: 15,
+    justifyContent: 'space-between',
   },
   placeholderHalf: {
     flex: 1,
@@ -367,42 +417,82 @@ const styles = StyleSheet.create({
   userHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
+  },
+  compactUserHeader: {
+    marginBottom: 8,
   },
   userName: {
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
   },
+  compactUserName: {
+    fontSize: 14,
+    marginLeft: 6,
+  },
   statsContainer: {
-    marginBottom: 15,
+    marginBottom: 12,
+  },
+  compactStatsContainer: {
+    marginBottom: 8,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 5,
+    marginVertical: 3,
   },
   statValue: {
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 8,
   },
+  compactStatValue: {
+    fontSize: 12,
+    marginLeft: 6,
+  },
   exerciseSection: {
-    marginTop: 10,
+    flex: 1,
+    marginTop: 8,
+  },
+  compactExerciseSection: {
+    marginTop: 4,
   },
   exerciseTitle: {
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+  compactExerciseTitle: {
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  exerciseList: {
+    flex: 1,
   },
   exerciseName: {
     fontSize: 12,
     marginVertical: 2,
+    lineHeight: 16,
+  },
+  compactExerciseName: {
+    fontSize: 11,
+    marginVertical: 1,
+    lineHeight: 14,
   },
   moreExercises: {
     fontSize: 11,
     fontStyle: 'italic',
     marginTop: 4,
+  },
+  compactMoreExercises: {
+    fontSize: 10,
+    marginTop: 2,
   },
   divider: {
     position: 'absolute',

@@ -15,15 +15,23 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import useRoutineStore from '@/stores/routineStore';
 import useWorkoutStore from '@/stores/workoutStore';
+import useAuthStore from '@/stores/authStore';
 import { exerciseDatabase } from '@/data/exercises';
 
 export default function RoutineListScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const { routines, toggleFavorite, deleteRoutine, duplicateRoutine } = useRoutineStore();
+  const { routines, toggleFavorite, deleteRoutine, duplicateRoutine, shareRoutine, loadRoutines } = useRoutineStore();
   const { loadFromRoutine } = useWorkoutStore();
+  const { user } = useAuthStore();
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+
+  React.useEffect(() => {
+    if (user?.id) {
+      loadRoutines(user.id);
+    }
+  }, [user?.id, loadRoutines]);
 
   const displayRoutines = showOnlyFavorites
     ? routines.filter(r => r.isFavorite)
@@ -56,9 +64,17 @@ export default function RoutineListScreen() {
     );
   };
 
-  const handleDuplicateRoutine = (routineId: string) => {
-    duplicateRoutine(routineId);
-    Alert.alert('알림', '루틴이 복사되었습니다.');
+  const handleDuplicateRoutine = async (routineId: string) => {
+    try {
+      await duplicateRoutine(routineId);
+      Alert.alert('알림', '루틴이 복사되었습니다.');
+    } catch {
+      Alert.alert('오류', '루틴 복사에 실패했습니다.');
+    }
+  };
+
+  const handleShareRoutine = (routineId: string) => {
+    shareRoutine(routineId);
   };
 
   return (
@@ -179,6 +195,13 @@ export default function RoutineListScreen() {
                 >
                   <Ionicons name="copy-outline" size={16} color={colors.text} />
                   <ThemedText>복사</ThemedText>
+                </Pressable>
+                <Pressable
+                  style={[styles.actionButton, styles.secondaryButton]}
+                  onPress={() => handleShareRoutine(routine.id)}
+                >
+                  <Ionicons name="share-outline" size={16} color={colors.text} />
+                  <ThemedText>공유</ThemedText>
                 </Pressable>
                 <Pressable
                   style={[styles.actionButton, styles.dangerButton]}

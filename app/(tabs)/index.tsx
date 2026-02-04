@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import useAuthStore from '@/stores/authStore';
 import useWorkoutStore from '@/stores/workoutStore';
 import useFeedStore from '@/stores/feedStore';
+import useNotificationStore from '@/stores/notificationStore';
 import FeedCard from '@/components/feed/FeedCard';
 import { FeedFilter, FeedItem } from '@/types';
 
@@ -34,6 +35,7 @@ export default function HomeScreen() {
     fetchFeed,
     setFilter
   } = useFeedStore();
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -91,8 +93,15 @@ export default function HomeScreen() {
 
         <View style={styles.headerActions}>
           {user && (
-            <Pressable onPress={() => router.push('/notifications')}>
+            <Pressable onPress={() => router.push('/notifications')} style={styles.notificationButton}>
               <Ionicons name="notifications-outline" size={24} color={colors.text} />
+              {unreadCount > 0 && (
+                <View style={[styles.notificationBadge, { backgroundColor: '#ff4444' }]}>
+                  <ThemedText style={styles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </ThemedText>
+                </View>
+              )}
             </Pressable>
           )}
         </View>
@@ -279,6 +288,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  notificationButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '700',
   },
   quickStartWrapper: {
     margin: 15,

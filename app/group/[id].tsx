@@ -31,20 +31,20 @@ export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { user } = useAuthStore();
+  const { user, fetchUserProfile } = useAuthStore();
   const {
     currentGroup,
-    groupPosts,
     getGroupPosts,
     fetchGroupPosts,
     shareToGroup,
-    likeGroupPost,
-    commentOnGroupPost,
+    togglePostLike,
+    addComment,
     refreshInviteCode,
     leaveGroup,
   } = useGroupStore();
 
   const postsForGroup = id ? getGroupPosts(id) : [];
+  const [postUsernames, setPostUsernames] = useState<Record<string, string>>({});
   const { lastWorkout } = useWorkoutStore();
   const {
     liveWorkouts,
@@ -61,15 +61,24 @@ export default function GroupDetailScreen() {
   useEffect(() => {
     if (id) {
       fetchGroupPosts(id);
-      // 그룹의 실시간 운동 상태 리스닝 시작
       startListeningToLiveWorkouts(id);
     }
-
-    return () => {
-      // 리스닝 중지
-      stopListeningToLiveWorkouts();
-    };
+    return () => stopListeningToLiveWorkouts();
   }, [id]);
+
+  // 포스트 작성자 username 조회
+  useEffect(() => {
+    const uniqueIds = [...new Set(postsForGroup.map((p: any) => p.userId).filter(Boolean))];
+    uniqueIds.forEach((uid) => {
+      if (!postUsernames[uid]) {
+        fetchUserProfile(uid).then((profile) => {
+          if (profile?.username) {
+            setPostUsernames((prev) => ({ ...prev, [uid]: profile.username }));
+          }
+        });
+      }
+    });
+  }, [postsForGroup.length, postsForGroup]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -105,18 +114,18 @@ export default function GroupDetailScreen() {
 
   const handleLike = async (postId: string) => {
     if (!user) return;
-    await likeGroupPost(postId, user.id);
+    await togglePostLike(postId, user.id);
   };
 
   const handleComment = async (postId: string, text: string) => {
     if (!user || !text.trim()) return;
 
-    await commentOnGroupPost(postId, {
+    await addComment(postId, {
       id: Date.now().toString(),
       userId: user.id,
-      username: user.username,
-      text: text.trim(),
+      content: text.trim(),
       createdAt: new Date(),
+      username: user.username,
     });
   };
 
@@ -203,7 +212,9 @@ export default function GroupDetailScreen() {
           <View style={styles.userInfo}>
             <Ionicons name="person-circle" size={36} color="#ccc" />
             <View>
-              <ThemedText style={styles.username}>{item.userId}</ThemedText>
+              <ThemedText style={styles.username}>
+                {postUsernames[item.userId] || item.username || item.userId}
+              </ThemedText>
               <ThemedText style={styles.postTime}>
                 {new Date(item.createdAt).toLocaleString('ko-KR')}
               </ThemedText>
@@ -250,8 +261,8 @@ export default function GroupDetailScreen() {
           <View style={styles.comments}>
             {item.comments.slice(-2).map((comment: any) => (
               <View key={comment.id} style={styles.comment}>
-                <ThemedText style={styles.commentUser}>{comment.username}</ThemedText>
-                <ThemedText style={styles.commentText}>{comment.text}</ThemedText>
+                <ThemedText style={styles.commentUser}>{comment.username || comment.userId}</ThemedText>
+                <ThemedText style={styles.commentText}>{comment.content || comment.text}</ThemedText>
               </View>
             ))}
           </View>

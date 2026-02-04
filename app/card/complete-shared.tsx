@@ -32,23 +32,29 @@ export default function CompleteSharedCardScreen() {
   const viewShotRef = useRef<ViewShot>(null);
 
   const { lastWorkout, startSession } = useWorkoutStore();
-  const { sharedCards, groups, completeSharedCard, joinCollaborativeCard, fetchSharedCards } = useGroupStore();
-  const { user } = useAuthStore();
+  const { sharedCards, groups, completeSharedCard, joinCollaborativeCard } = useGroupStore();
+  const { user, fetchUserProfile } = useAuthStore();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [sharedCard, setSharedCard] = useState<any>(null);
   const [group, setGroup] = useState<any>(null);
+  const [firstUserName, setFirstUserName] = useState<string>('');
 
   useEffect(() => {
-    // 공유 카드 찾기
-    const card = sharedCards.find(c => c.id === cardId);
+    const card = sharedCards.find((c: any) => c.id === cardId);
     if (card) {
       setSharedCard(card);
-      // 그룹 찾기
-      const foundGroup = groups.find(g => g.id === card.groupId);
+      const foundGroup = groups.find((g: any) => g.id === card.groupId);
       setGroup(foundGroup);
+      if (card.firstHalf?.userId) {
+        fetchUserProfile(card.firstHalf.userId).then((profile) => {
+          setFirstUserName(profile?.username ?? card.firstHalf.username ?? card.firstHalf.userId);
+        });
+      } else {
+        setFirstUserName(card.firstHalf?.username ?? '');
+      }
     }
-  }, [cardId, sharedCards, groups]);
+  }, [cardId, sharedCards, groups, fetchUserProfile]);
 
   // 협업 카드인 경우 운동 시작 옵션 표시
   if (!lastWorkout && sharedCard?.type === 'collaborative') {
@@ -72,7 +78,7 @@ export default function CompleteSharedCardScreen() {
             함께 운동 카드를 완성해요!
           </ThemedText>
           <ThemedText style={styles.emptySubtext}>
-            {sharedCard?.firstHalf?.username || '그룹원'}님이 기다리고 있어요.{'\n'}
+            {firstUserName || sharedCard?.firstHalf?.username || '그룹원'}님이 기다리고 있어요.{'\n'}
             지금 운동을 시작하여 카드를 완성하세요.
           </ThemedText>
           <Pressable
@@ -245,8 +251,7 @@ export default function CompleteSharedCardScreen() {
 
   // 미리보기용 - 실제 데이터가 있을 때만 표시
   const renderPreview = () => {
-    // 첫 번째 운동 데이터는 이미 저장되어 있음
-    const firstWorkout = null; // TODO: sharedCard.firstHalf.workout 로드 필요
+    const firstWorkout = sharedCard?.firstHalf?.workout ?? null;
 
     return (
       <SharedCardTemplate
@@ -258,7 +263,7 @@ export default function CompleteSharedCardScreen() {
         customOptions={sharedCard.customOptions}
         width={cardWidth}
         height={cardHeight}
-        firstUserName={sharedCard.firstHalf.userId} // TODO: 실제 사용자 이름
+        firstUserName={firstUserName || sharedCard?.firstHalf?.username || sharedCard?.firstHalf?.userId || ''}
         secondUserName={user?.username || '나'}
         groupName={group.name}
       />
@@ -310,7 +315,7 @@ export default function CompleteSharedCardScreen() {
             <Ionicons name="person-outline" size={20} color={colors.text} />
             <ThemedText style={styles.infoLabel}>첫 번째 작성자:</ThemedText>
             <ThemedText style={styles.infoValue}>
-              {sharedCard.firstHalf.userId}
+              {firstUserName || sharedCard.firstHalf?.username || sharedCard.firstHalf?.userId || '-'}
             </ThemedText>
           </View>
 

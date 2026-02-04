@@ -125,11 +125,8 @@ export default function FeedCard({ feedItem, currentUserId }: FeedCardProps) {
         <Pressable
           style={styles.userInfo}
           onPress={() => {
-            // TODO: 프로필 상세 페이지 구현 후 라우팅 활성화
-            // router.push(`/profile/${feedItem.userId}`)
-            // 임시로 프로필 탭으로 이동
-            if (currentUserId) {
-              router.push('/(tabs)/profile');
+            if (feedItem.userId) {
+              router.push(`/profile/${feedItem.userId}`);
             }
           }}
         >

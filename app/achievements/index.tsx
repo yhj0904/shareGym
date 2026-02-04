@@ -3,7 +3,7 @@
  * 모든 업적을 카테고리별로 확인하고 진행 상황을 볼 수 있는 화면
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -18,6 +18,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import useAuthStore from '@/stores/authStore';
 import useAchievementStore from '@/stores/achievementStore';
 import AchievementBadge from '@/components/achievements/AchievementBadge';
 import AchievementUnlockModal from '@/components/achievements/AchievementUnlockModal';
@@ -28,13 +29,19 @@ export default function AchievementsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  const { user } = useAuthStore();
   const {
     userAchievements,
     totalPoints,
     getUnlockedAchievements,
     getAchievementProgress,
     markAchievementAsSeen,
+    loadAchievements,
   } = useAchievementStore();
+
+  useEffect(() => {
+    if (user?.id) loadAchievements(user.id);
+  }, [user?.id]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);

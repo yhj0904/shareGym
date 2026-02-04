@@ -7,6 +7,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { achievements } from '@/data/achievements';
 import { WorkoutSession } from '@/types';
+import { isBackendEnabled, getAchievements } from '@/lib/api';
 
 interface UserAchievement {
   achievementId: string;
@@ -44,6 +45,10 @@ interface AchievementStore {
   // 통계 업데이트
   updateStats: (workouts: WorkoutSession[]) => void;
   updateStreak: (workoutDate: Date) => void;
+
+  // 백엔드 연동
+  loadAchievements: (userId: string) => Promise<void>;
+  clearUserData: () => void;
 }
 
 const useAchievementStore = create<AchievementStore>()(
@@ -377,6 +382,46 @@ const useAchievementStore = create<AchievementStore>()(
             totalDistance,
             totalDuration,
             uniqueExercises,
+          },
+        });
+      },
+
+      loadAchievements: async (userId) => {
+        if (!isBackendEnabled()) return;
+        try {
+          const res = await getAchievements(userId);
+          if (res) {
+            set({
+              userAchievements: res.userAchievements.map((ua) => ({
+                achievementId: ua.achievementId,
+                unlockedAt: new Date(ua.unlockedAt),
+                progress: ua.progress,
+                isNew: ua.isNew ?? false,
+              })),
+              totalPoints: res.totalPoints ?? 0,
+              currentStreak: res.currentStreak ?? 0,
+              longestStreak: res.longestStreak ?? 0,
+              lastWorkoutDate: res.lastWorkoutDate ? new Date(res.lastWorkoutDate) : get().lastWorkoutDate,
+            });
+          }
+        } catch (e) {
+          console.warn('loadAchievements failed', e);
+        }
+      },
+
+      clearUserData: () => {
+        set({
+          userAchievements: [],
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          lastWorkoutDate: null,
+          stats: {
+            totalWorkouts: 0,
+            totalVolume: 0,
+            totalDistance: 0,
+            totalDuration: 0,
+            uniqueExercises: new Set(),
           },
         });
       },
